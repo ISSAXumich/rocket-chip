@@ -1,16 +1,19 @@
 // See LICENSE.SiFive for license details.
 // See LICENSE.Berkeley for license details.
 
-package freechips.rocketchip.rocket
+package rocket
 
 import Chisel._
-import freechips.rocketchip.config.Parameters
-import freechips.rocketchip.tile.CoreModule
+import config._
+import tile._
+import Instructions._
 
 object ALU
 {
-  val SZ_ALU_FN = 4
-  def FN_X    = BitPat("b????")
+  val SZ_ALU_FN = 5
+  def FN_X    = BitPat("b?????")
+  // val SZ_ALU_FN = 4
+  // def FN_X    = BitPat("b????")
   def FN_ADD  = UInt(0)
   def FN_SL   = UInt(1)
   def FN_SEQ  = UInt(2)
@@ -25,6 +28,7 @@ object ALU
   def FN_SGE  = UInt(13)
   def FN_SLTU = UInt(14)
   def FN_SGEU = UInt(15)
+  def FN_MOD  = UInt(16)
 
   def FN_DIV  = FN_XOR
   def FN_DIVU = FN_SR
@@ -38,14 +42,12 @@ object ALU
 
   def isMulFN(fn: UInt, cmp: UInt) = fn(1,0) === cmp(1,0)
   def isSub(cmd: UInt) = cmd(3)
-  def isCmp(cmd: UInt) = cmd >= FN_SLT
+  def isCmp(cmd: UInt) = cmd === FN_SEQ || cmd === FN_SNE || cmd >= FN_SLT
   def cmpUnsigned(cmd: UInt) = cmd(1)
   def cmpInverted(cmd: UInt) = cmd(0)
   def cmpEq(cmd: UInt) = !cmd(3)
 }
-
 import ALU._
-import Instructions._
 
 class ALU(implicit p: Parameters) extends CoreModule()(p) {
   val io = new Bundle {
@@ -58,16 +60,19 @@ class ALU(implicit p: Parameters) extends CoreModule()(p) {
     val cmp_out = Bool(OUTPUT)
   }
 
-  // ADD, SUB
+  // ADD, SUB, MOD
   val in2_inv = Mux(isSub(io.fn), ~io.in2, io.in2)
   val in1_xor_in2 = io.in1 ^ in2_inv
-  io.adder_out := io.in1 + in2_inv + isSub(io.fn)
+  val adder = io.in1 + in2_inv + isSub(io.fn)
+  val mod = io.in1 % io.in2
+  io.adder_out := Mux(io.fn === FN_MOD, mod, adder)
+  // io.adder_out := adder
 
   // SLT, SLTU
-  val slt =
+  io.cmp_out := cmpInverted(io.fn) ^
+    Mux(cmpEq(io.fn), in1_xor_in2 === UInt(0),
     Mux(io.in1(xLen-1) === io.in2(xLen-1), io.adder_out(xLen-1),
-    Mux(cmpUnsigned(io.fn), io.in2(xLen-1), io.in1(xLen-1)))
-  io.cmp_out := cmpInverted(io.fn) ^ Mux(cmpEq(io.fn), in1_xor_in2 === UInt(0), slt)
+    Mux(cmpUnsigned(io.fn), io.in2(xLen-1), io.in1(xLen-1))))
 
   // SLL, SRL, SRA
   val (shamt, shin_r) =
@@ -85,11 +90,12 @@ class ALU(implicit p: Parameters) extends CoreModule()(p) {
   val shout = Mux(io.fn === FN_SR || io.fn === FN_SRA, shout_r, UInt(0)) |
               Mux(io.fn === FN_SL,                     shout_l, UInt(0))
 
-  // AND, OR, XOR
+  // AND, OR, XOR, MOD
   val logic = Mux(io.fn === FN_XOR || io.fn === FN_OR, in1_xor_in2, UInt(0)) |
               Mux(io.fn === FN_OR || io.fn === FN_AND, io.in1 & io.in2, UInt(0))
-  val shift_logic = (isCmp(io.fn) && slt) | logic | shout
-  val out = Mux(io.fn === FN_ADD || io.fn === FN_SUB, io.adder_out, shift_logic)
+  val shift_logic = (isCmp(io.fn) && io.cmp_out) | logic | shout
+  val out = Mux(io.fn === FN_ADD || io.fn === FN_SUB || io.fn === FN_MOD, io.adder_out, shift_logic)
+  // val out = Mux(io.fn === FN_ADD || io.fn === FN_SUB, io.adder_out, shift_logic)
 
   io.out := out
   if (xLen > 32) {

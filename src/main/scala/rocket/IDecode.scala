@@ -1,15 +1,16 @@
 // See LICENSE.SiFive for license details.
 // See LICENSE.Berkeley for license details.
 
-package freechips.rocketchip.rocket
+package rocket
 
 import Chisel._
 import Chisel.ImplicitConversions._
-import freechips.rocketchip.config.Parameters
-import freechips.rocketchip.tile.HasCoreParameters
-import freechips.rocketchip.util._
 import Instructions._
+import uncore.constants.MemoryOpConstants._
 import ALU._
+import config._
+import tile.HasCoreParameters
+import util._
 
 abstract trait DecodeConstants extends HasCoreParameters
 {
@@ -100,6 +101,7 @@ class IDecode(implicit val p: Parameters) extends DecodeConstants
     SRLI->      List(Y,N,N,N,N,N,N,Y,A2_IMM, A1_RS1, IMM_I, DW_XPR,FN_SR,    N,M_X,        MT_X, N,N,N,N,N,Y,CSR.N,N,N,N,N),
     SRAI->      List(Y,N,N,N,N,N,N,Y,A2_IMM, A1_RS1, IMM_I, DW_XPR,FN_SRA,   N,M_X,        MT_X, N,N,N,N,N,Y,CSR.N,N,N,N,N),
     ADD->       List(Y,N,N,N,N,N,Y,Y,A2_RS2, A1_RS1, IMM_X, DW_XPR,FN_ADD,   N,M_X,        MT_X, N,N,N,N,N,Y,CSR.N,N,N,N,N),
+    MOD->       List(Y,N,N,N,N,N,Y,Y,A2_RS2, A1_RS1, IMM_X, DW_XPR,FN_MOD,   N,M_X,        MT_X, N,N,N,N,N,Y,CSR.N,N,N,N,N),
     SUB->       List(Y,N,N,N,N,N,Y,Y,A2_RS2, A1_RS1, IMM_X, DW_XPR,FN_SUB,   N,M_X,        MT_X, N,N,N,N,N,Y,CSR.N,N,N,N,N),
     SLT->       List(Y,N,N,N,N,N,Y,Y,A2_RS2, A1_RS1, IMM_X, DW_XPR,FN_SLT,   N,M_X,        MT_X, N,N,N,N,N,Y,CSR.N,N,N,N,N),
     SLTU->      List(Y,N,N,N,N,N,Y,Y,A2_RS2, A1_RS1, IMM_X, DW_XPR,FN_SLTU,  N,M_X,        MT_X, N,N,N,N,N,Y,CSR.N,N,N,N,N),
@@ -128,7 +130,7 @@ class IDecode(implicit val p: Parameters) extends DecodeConstants
 class SDecode(implicit val p: Parameters) extends DecodeConstants
 {
   val table: Array[(BitPat, List[BitPat])] = Array(
-    SFENCE_VMA->List(Y,N,N,N,N,N,Y,Y,A2_ZERO,A1_RS1, IMM_X, DW_XPR,FN_ADD,   Y,M_SFENCE,   MT_W, N,N,N,N,N,N,CSR.N,N,N,N,N),
+    SFENCE_VM-> List(Y,N,N,N,N,N,N,X,A2_X,   A1_X,   IMM_X, DW_X,  FN_X,     N,M_X,        MT_X, N,N,N,N,N,N,CSR.I,N,N,N,N),
     SRET->      List(Y,N,N,N,N,N,N,X,A2_X,   A1_X,   IMM_X, DW_X,  FN_X,     N,M_X,        MT_X, N,N,N,N,N,N,CSR.I,N,N,N,N))
 }
 
