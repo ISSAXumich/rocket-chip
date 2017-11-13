@@ -288,6 +288,16 @@ class Rocket(implicit p: Parameters) extends CoreModule()(p)
   div.io.req.bits.in2 := ex_rs(1)
   div.io.req.bits.tag := ex_waddr
 
+  //ADDED /////////////////////////////////////////////
+  val ninst = Module(new NewInstModule(width = xLen))
+  ninst.io.req.valid := ex_reg_valid && ex_ctrl.ninst
+  ninst.io.req.bits.dw := ex_ctrl.alu_dw
+  ninst.io.req.bits.fn := ex_ctrl.alu_fn
+  ninst.io.req.bits.in1 := ex_rs(0)
+  ninst.io.req.bits.in2 := ex_rs(1)
+  //ninst.io.req.bits.tag := ex_waddr
+  //////////////////////////////////////////////////////
+
   ex_reg_valid := !ctrl_killd
   ex_reg_replay := !take_pc && ibuf.io.inst(0).valid && ibuf.io.inst(0).bits.replay
   ex_reg_xcpt := !ctrl_killd && id_xcpt
@@ -349,7 +359,8 @@ class Rocket(implicit p: Parameters) extends CoreModule()(p)
   val ex_pc_valid = ex_reg_valid || ex_reg_replay || ex_reg_xcpt_interrupt
   val wb_dcache_miss = wb_ctrl.mem && !io.dmem.resp.valid
   val replay_ex_structural = ex_ctrl.mem && !io.dmem.req.ready ||
-                             ex_ctrl.div && !div.io.req.ready
+                             ex_ctrl.div && !div.io.req.ready ||
+                             ex_ctrl.ninst && !ninst.io.req.ready //ADDED
   val replay_ex_load_use = wb_dcache_miss && ex_reg_load_use
   val replay_ex = ex_reg_replay || (ex_reg_valid && (replay_ex_structural || replay_ex_load_use))
   val ctrl_killx = take_pc_mem_wb || replay_ex || !ex_reg_valid
@@ -432,6 +443,7 @@ class Rocket(implicit p: Parameters) extends CoreModule()(p)
   val replay_mem  = dcache_kill_mem || mem_reg_replay || fpu_kill_mem
   val killm_common = dcache_kill_mem || take_pc_wb || mem_reg_xcpt || !mem_reg_valid
   div.io.kill := killm_common && Reg(next = div.io.req.fire())
+  ninst.io.kill :=  killm_common && Reg(next = ninst.io.req.fire())
   val ctrl_killm = killm_common || mem_xcpt || fpu_kill_mem
 
   // writeback stage
@@ -477,6 +489,7 @@ class Rocket(implicit p: Parameters) extends CoreModule()(p)
   val dmem_resp_replay = dmem_resp_valid && io.dmem.resp.bits.replay
 
   div.io.resp.ready := !wb_wxd
+  ninst.io.resp.ready := !wb_wxd //ADDED
   val ll_wdata = Wire(init = div.io.resp.bits.data)
   val ll_waddr = Wire(init = div.io.resp.bits.tag)
   val ll_wen = Wire(init = div.io.resp.fire())
@@ -484,6 +497,7 @@ class Rocket(implicit p: Parameters) extends CoreModule()(p)
     io.rocc.resp.ready := !wb_wxd
     when (io.rocc.resp.fire()) {
       div.io.resp.ready := Bool(false)
+      ninst.io.resp.ready := Bool(false) //ADDED
       ll_wdata := io.rocc.resp.bits.data
       ll_waddr := io.rocc.resp.bits.rd
       ll_wen := Bool(true)
@@ -491,6 +505,7 @@ class Rocket(implicit p: Parameters) extends CoreModule()(p)
   }
   when (dmem_resp_replay && dmem_resp_xpu) {
     div.io.resp.ready := Bool(false)
+    ninst.io.resp.ready := Bool(false) //ADDED
     if (usingRoCC)
       io.rocc.resp.ready := Bool(false)
     ll_waddr := dmem_resp_waddr
@@ -588,6 +603,7 @@ class Rocket(implicit p: Parameters) extends CoreModule()(p)
     id_ctrl.mem && dcache_blocked || // reduce activity during D$ misses
     id_ctrl.rocc && rocc_blocked || // reduce activity while RoCC is busy
     id_ctrl.div && (!(div.io.req.ready || (div.io.resp.valid && !wb_wxd)) || div.io.req.valid) || // reduce odds of replay
+    id_ctrl.ninst && (!(ninst.io.req.ready || (ninst.io.resp.valid && !wb_wxd)) || ninst.io.req.valid) || //ADDED
     id_do_fence ||
     csr.io.csr_stall
   ctrl_killd := !ibuf.io.inst(0).valid || ibuf.io.inst(0).bits.replay || take_pc_mem_wb || ctrl_stalld || csr.io.interrupt

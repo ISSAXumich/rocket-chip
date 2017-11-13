@@ -44,23 +44,24 @@ class IntCtrlSigs extends Bundle {
   val fence = Bool()
   val amo = Bool()
   val dp = Bool()
+  val ninst = Bool() //ADDED
 
   def default: List[BitPat] =
-                //           jal                                                                 renf1             fence.i
-                //   val     | jalr                                                              | renf2           |
-                //   | fp_val| | renx2                                                           | | renf3         |
-                //   | | rocc| | | renx1     s_alu1                          mem_val             | | | wfd         | 
-                //   | | | br| | | | s_alu2  |       imm    dw     alu       | mem_cmd   mem_type| | | | div       | 
-                //   | | | | | | | | |       |       |      |      |         | |           |     | | | | | wxd     | fence
-                //   | | | | | | | | |       |       |      |      |         | |           |     | | | | | | csr   | | amo
-                //   | | | | | | | | |       |       |      |      |         | |           |     | | | | | | |     | | | dp
-                List(N,X,X,X,X,X,X,X,A2_X,   A1_X,   IMM_X, DW_X,  FN_X,     N,M_X,        MT_X, X,X,X,X,X,X,CSR.X,X,X,X,X)
+                //           jal                                                                 renf1             fence.i ADDED Instruction
+                //   val     | jalr                                                              | renf2           |       |
+                //   | fp_val| | renx2                                                           | | renf3         |       |
+                //   | | rocc| | | renx1     s_alu1                          mem_val             | | | wfd         |       | 
+                //   | | | br| | | | s_alu2  |       imm    dw     alu       | mem_cmd   mem_type| | | | div       |       |
+                //   | | | | | | | | |       |       |      |      |         | |           |     | | | | | wxd     | fence |
+                //   | | | | | | | | |       |       |      |      |         | |           |     | | | | | | csr   | | amo |
+                //   | | | | | | | | |       |       |      |      |         | |           |     | | | | | | |     | | | dp|
+                List(N,X,X,X,X,X,X,X,A2_X,   A1_X,   IMM_X, DW_X,  FN_X,     N,M_X,        MT_X, X,X,X,X,X,X,CSR.X,X,X,X,X,X)
 
   def decode(inst: UInt, table: Iterable[(BitPat, List[BitPat])]) = {
     val decoder = DecodeLogic(inst, default, table)
     val sigs = Seq(legal, fp, rocc, branch, jal, jalr, rxs2, rxs1, sel_alu2,
                    sel_alu1, sel_imm, alu_dw, alu_fn, mem, mem_cmd, mem_type,
-                   rfs1, rfs2, rfs3, wfd, div, wxd, csr, fence_i, fence, amo, dp)
+                   rfs1, rfs2, rfs3, wfd, div, wxd, csr, fence_i, fence, amo, dp, ninst)
     sigs zip decoder map {case(s,d) => s := d}
     this
   }
@@ -88,6 +89,8 @@ class IDecode(implicit val p: Parameters) extends DecodeConstants
     SB->        List(Y,N,N,N,N,N,Y,Y,A2_IMM, A1_RS1, IMM_S, DW_XPR,FN_ADD,   Y,M_XWR,      MT_B, N,N,N,N,N,N,CSR.N,N,N,N,N),
     SH->        List(Y,N,N,N,N,N,Y,Y,A2_IMM, A1_RS1, IMM_S, DW_XPR,FN_ADD,   Y,M_XWR,      MT_H, N,N,N,N,N,N,CSR.N,N,N,N,N),
     SW->        List(Y,N,N,N,N,N,Y,Y,A2_IMM, A1_RS1, IMM_S, DW_XPR,FN_ADD,   Y,M_XWR,      MT_W, N,N,N,N,N,N,CSR.N,N,N,N,N),
+
+    //TODO ADDED instruction, add the sig to the encoding
 
     LUI->       List(Y,N,N,N,N,N,N,N,A2_IMM, A1_ZERO,IMM_U, DW_XPR,FN_ADD,   N,M_X,        MT_X, N,N,N,N,N,Y,CSR.N,N,N,N,N),
     ADDI->      List(Y,N,N,N,N,N,N,Y,A2_IMM, A1_RS1, IMM_I, DW_XPR,FN_ADD,   N,M_X,        MT_X, N,N,N,N,N,Y,CSR.N,N,N,N,N),
