@@ -28,6 +28,7 @@ object ALU
   def FN_SLTU = UInt(14)
   def FN_SGEU = UInt(15)
   def FN_MOD  = UInt(16)
+  def FN_NINST = UInt(17)
 
   def FN_DIV  = FN_XOR
   def FN_DIVU = FN_SR
