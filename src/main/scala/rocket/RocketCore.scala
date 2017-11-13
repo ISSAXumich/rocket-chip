@@ -289,7 +289,7 @@ class Rocket(implicit p: Parameters) extends CoreModule()(p)
   div.io.req.bits.tag := ex_waddr
 
   //ADDED /////////////////////////////////////////////
-  val ninst = Module(new NewInstModule(width = xLen))
+  val ninst = Module(new NewInst(width = xLen))
   ninst.io.req.valid := ex_reg_valid && ex_ctrl.ninst
   ninst.io.req.bits.dw := ex_ctrl.alu_dw
   ninst.io.req.bits.fn := ex_ctrl.alu_fn
