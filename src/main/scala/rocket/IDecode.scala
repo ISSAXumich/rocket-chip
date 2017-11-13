@@ -90,7 +90,7 @@ class IDecode(implicit val p: Parameters) extends DecodeConstants
     SH->        List(Y,N,N,N,N,N,Y,Y,A2_IMM, A1_RS1, IMM_S, DW_XPR,FN_ADD,   Y,M_XWR,      MT_H, N,N,N,N,N,N,CSR.N,N,N,N,N,N),
     SW->        List(Y,N,N,N,N,N,Y,Y,A2_IMM, A1_RS1, IMM_S, DW_XPR,FN_ADD,   Y,M_XWR,      MT_W, N,N,N,N,N,N,CSR.N,N,N,N,N,N),
 
-    //ADDED instruction, add the sig to the encoding
+    //ADDED instruction, added the sig to the encoding
     NINST->     List(Y,N,N,N,N,N,Y,Y,A2_RS2, A1_RS1, IMM_X, DW_XPR,FN_NINST, N,M_X,        MT_X, N,N,N,N,N,Y,CSR.N,N,N,N,N,Y),
 
     LUI->       List(Y,N,N,N,N,N,N,N,A2_IMM, A1_ZERO,IMM_U, DW_XPR,FN_ADD,   N,M_X,        MT_X, N,N,N,N,N,Y,CSR.N,N,N,N,N,N),
