@@ -75,10 +75,6 @@ class NewInst(/*cfg: NewInstParams,*/ width: Int/*, nXpr: Int = 32*/) extends Mo
   val s_ready :: s_add :: s_done :: Nil = Enum(UInt(), 3)
   val state = Reg(init=s_ready)
 
-  /////////////////////////////////////////////////////////////////////////////////////////////////////////////
-  /*                                         WHERE I LEFT OFF.                                               */
-  /////////////////////////////////////////////////////////////////////////////////////////////////////////////
-
   val req = Reg(io.req.bits)
   val count = Reg(UInt(width=w))
   val holder = Reg(UInt(width=w))
