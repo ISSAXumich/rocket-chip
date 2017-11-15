@@ -20,15 +20,15 @@ int main() {
     // }
 
     // for ( int i = 0; i < 5; i++ ) {
-    //     if( c[i] != (5 - 1 - i) ) {
+    //     if( c[i] != (5 + 1 + i) ) {
     //         printf("\n[[FAILED]]: i=%d, c[i]=%d\n",i,c[i]);
     //         return -1;
     //     }
     //     printf("i=%d, c[i]=%d\n",i,c[i]);
     // }
 
-    int test1 = 5;
-    int test2 = 2;
+    int test1 = 1;
+    int test2 = 1;
     int test3 = 0;
 
     asm volatile
@@ -38,7 +38,7 @@ int main() {
         : [x] "r" (test1), [y] "r" (test2)
     );
 
-    if( test3 != (test1 - test2) ) {
+    if( test3 != (test1 + test2) ) {
         printf("\n[[FAILED]]: test3=%d\n",test3);
         return -1;
     }

@@ -20,7 +20,7 @@ int main() {
     }
 
     for ( int i = 0; i < 5; i++ ) {
-        if( c[i] != (5 - 1 - i) ) {
+        if( c[i] != (5 + 1 + i) ) {
              printf("\n[[FAILED]]: i=%d, c[i]=%d\n",i,c[i]);
              return -1;
         }
