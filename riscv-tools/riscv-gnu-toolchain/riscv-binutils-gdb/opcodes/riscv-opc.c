@@ -238,6 +238,8 @@ const struct riscv_opcode riscv_opcodes[] =
 {"sra",       "I",   "d,s,>",   MATCH_SRAI, MASK_SRAI, match_opcode, INSN_ALIAS },
 {"sub",       "C",   "Cs,Cw,Ct",  MATCH_C_SUB, MASK_C_SUB, match_opcode, INSN_ALIAS },
 {"sub",       "I",   "d,s,t",  MATCH_SUB, MASK_SUB, match_opcode, 0 },
+{"mod",       "I",   "d,s,t",  MATCH_MOD, MASK_MOD, match_opcode, 0 },
+{"ninst",     "I",   "d,s,t",  MATCH_NINST, MASK_NINST, match_opcode, 0 },
 {"lb",        "I",   "d,o(s)",  MATCH_LB, MASK_LB, match_opcode, 0 },
 {"lb",        "I",   "d,A",  0, (int) M_LB, match_never, INSN_MACRO },
 {"lbu",       "I",   "d,o(s)",  MATCH_LBU, MASK_LBU, match_opcode, 0 },

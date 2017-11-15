@@ -245,12 +245,14 @@ riscv_insn_list = \
 	lui \
 	lw \
 	lwu \
+    mod \
 	mret \
 	mul \
 	mulh \
 	mulhsu \
 	mulhu \
 	mulw \
+	ninst \
 	or \
 	ori \
 	rem \

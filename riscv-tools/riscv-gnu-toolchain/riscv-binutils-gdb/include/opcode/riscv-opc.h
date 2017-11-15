@@ -81,6 +81,10 @@
 #define MASK_ADD  0xfe00707f
 #define MATCH_SUB 0x40000033
 #define MASK_SUB  0xfe00707f
+#define MATCH_MOD 0x20000033
+#define MASK_MOD  0xfe00707f
+#define MATCH_NINST 0x20001033
+#define MASK_NINST  0xfe00707f
 #define MATCH_SLL 0x1033
 #define MASK_SLL  0xfe00707f
 #define MATCH_SLT 0x2033
