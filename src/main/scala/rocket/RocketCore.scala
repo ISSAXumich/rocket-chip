@@ -295,7 +295,7 @@ class Rocket(implicit p: Parameters) extends CoreModule()(p)
   ninst.io.req.bits.fn := ex_ctrl.alu_fn
   ninst.io.req.bits.in1 := ex_rs(0)
   ninst.io.req.bits.in2 := ex_rs(1)
-  //ninst.io.req.bits.tag := ex_waddr
+  ninst.io.req.bits.tag := ex_waddr
   //////////////////////////////////////////////////////
 
   ex_reg_valid := !ctrl_killd
@@ -490,9 +490,9 @@ class Rocket(implicit p: Parameters) extends CoreModule()(p)
 
   div.io.resp.ready := !wb_wxd
   ninst.io.resp.ready := !wb_wxd //ADDED
-  val ll_wdata = Wire(init = div.io.resp.bits.data)
-  val ll_waddr = Wire(init = div.io.resp.bits.tag)
-  val ll_wen = Wire(init = div.io.resp.fire())
+  val ll_wdata = Mux(wb_ctrl.div, Wire(init = div.io.resp.bits.data), Wire(init = ninst.io.resp.bits.data))
+  val ll_waddr = Mux(wb_ctrl.div, Wire(init = div.io.resp.bits.tag), Wire(init = ninst.io.resp.tag))
+  val ll_wen = Mux(wb_ctrl.div, Wire(init = div.io.resp.fire()), Wire(init = ninst.io.resp.fire()))
   if (usingRoCC) {
     io.rocc.resp.ready := !wb_wxd
     when (io.rocc.resp.fire()) {

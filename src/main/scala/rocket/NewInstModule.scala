@@ -9,27 +9,27 @@ import freechips.rocketchip.util._
 import ALU._
 
 //Data requested
-class NewInstReq(dataBits: Int/*, tagBits: Int*/) extends Bundle {
+class NewInstReq(dataBits: Int, tagBits: Int) extends Bundle {
   val fn = Bits(width = SZ_ALU_FN)
   val dw = Bits(width = SZ_DW)
   val in1 = Bits(width = dataBits)
   val in2 = Bits(width = dataBits)
-  //val tag = UInt(width = tagBits)
-  override def cloneType = new NewInstReq(dataBits/*, tagBits*/).asInstanceOf[this.type]
+  val tag = UInt(width = tagBits)
+  override def cloneType = new NewInstReq(dataBits, tagBits).asInstanceOf[this.type]
 }
 
 //Data responded
-class NewInstResp(dataBits: Int/*, tagBits: Int*/) extends Bundle {
+class NewInstResp(dataBits: Int, tagBits: Int) extends Bundle {
   val data = Bits(width = dataBits)
-  //val tag = UInt(width = tagBits)
-  override def cloneType = new NewInstResp(dataBits/*, tagBits*/).asInstanceOf[this.type]
+  val tag = UInt(width = tagBits)
+  override def cloneType = new NewInstResp(dataBits, tagBits).asInstanceOf[this.type]
 }
 
 //IO wrapper
-class NewInstIO(dataBits: Int/*, tagBits: Int*/) extends Bundle {
-  val req = Decoupled(new NewInstReq(dataBits/*, tagBits*/)).flip
+class NewInstIO(dataBits: Int, tagBits: Int) extends Bundle {
+  val req = Decoupled(new NewInstReq(dataBits, tagBits)).flip
   val kill = Bool(INPUT)
-  val resp = Decoupled(new NewInstResp(dataBits/*, tagBits*/))
+  val resp = Decoupled(new NewInstResp(dataBits, tagBits))
 }
 
 /*
