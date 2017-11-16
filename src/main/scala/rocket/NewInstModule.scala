@@ -63,8 +63,8 @@ case class NewInstParams(
     1. x.fire() ===  x.ready && x.valid
 */
 
-class NewInst(/*cfg: NewInstParams,*/ width: Int/*, nXpr: Int = 32*/) extends Module {
-  val io = new NewInstIO(width/*, log2Up(nXpr)*/)
+class NewInst(/*cfg: NewInstParams,*/ width: Int, nXpr: Int = 32) extends Module {
+  val io = new NewInstIO(width, log2Up(nXpr))
   val w = io.req.bits.in1.getWidth
 
   //val mulw = (w + cfg.mulUnroll - 1) / cfg.mulUnroll * cfg.mulUnroll
