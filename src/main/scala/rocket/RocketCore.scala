@@ -556,7 +556,7 @@ class Rocket(implicit p: Parameters) extends CoreModule()(p)
   def id_sboard_clear_bypass(r: UInt) = {
     // ll_waddr arrives late when D$ has ECC, so reshuffle the hazard check
     if (tileParams.dcache.get.dataECC.isInstanceOf[IdentityCode]) ll_wen && ll_waddr === r
-    else div.io.resp.fire() && div.io.resp.bits.tag === r || dmem_resp_replay && dmem_resp_xpu && dmem_resp_waddr === r
+    else ninst.io.resp.fire() && ninst.io.resp.bits.tag === r || div.io.resp.fire() && div.io.resp.bits.tag === r || dmem_resp_replay && dmem_resp_xpu && dmem_resp_waddr === r
   }
   val id_sboard_hazard = checkHazards(hazard_targets, rd => sboard.read(rd) && !id_sboard_clear_bypass(rd))
   sboard.set(wb_set_sboard && wb_wen, wb_waddr)
