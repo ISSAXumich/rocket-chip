@@ -1,0 +1,4 @@
+Steps:
+1. Paste these folders into the riscv-tools directory and overwrite any conflicts.
+2. Navigate to the riscv-opcodes directory, open a terminal, and run the "make install" command.
+3. Build the tools.
