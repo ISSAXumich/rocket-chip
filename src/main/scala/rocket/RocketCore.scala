@@ -289,7 +289,8 @@ class Rocket(implicit p: Parameters) extends CoreModule()(p)
   div.io.req.bits.tag := ex_waddr
 
   //ADDED /////////////////////////////////////////////
-  val ninst = Module(new NewInst(width = xLen))
+  // val ninst = Module(new NewInst(width = xLen))
+  val ninst = Module(new NewInst(mulDivParams, width = xLen))
   ninst.io.req.valid := ex_reg_valid && ex_ctrl.ninst
   ninst.io.req.bits.dw := ex_ctrl.alu_dw
   ninst.io.req.bits.fn := ex_ctrl.alu_fn
@@ -475,7 +476,7 @@ class Rocket(implicit p: Parameters) extends CoreModule()(p)
   ))
 
   val wb_wxd = wb_reg_valid && wb_ctrl.wxd
-  val wb_set_sboard = wb_ctrl.div || wb_dcache_miss || wb_ctrl.rocc || wb_ctrl.ninst
+  val wb_set_sboard = wb_ctrl.div || wb_ctrl.ninst || wb_dcache_miss || wb_ctrl.rocc
   val replay_wb_common = io.dmem.s2_nack || wb_reg_replay
   val replay_wb_rocc = wb_reg_valid && wb_ctrl.rocc && !io.rocc.cmd.ready
   val replay_wb = replay_wb_common || replay_wb_rocc
@@ -490,9 +491,20 @@ class Rocket(implicit p: Parameters) extends CoreModule()(p)
 
   div.io.resp.ready := !wb_wxd
   ninst.io.resp.ready := !wb_wxd //ADDED
-  val ll_wdata = Wire(init = Mux(wb_ctrl.div, div.io.resp.bits.data, ninst.io.resp.bits.data))
-  val ll_waddr = Wire(init = Mux(wb_ctrl.div, div.io.resp.bits.tag, ninst.io.resp.bits.tag))
-  val ll_wen = Wire(init = Mux(wb_ctrl.div, div.io.resp.fire(), ninst.io.resp.fire()))
+  val ll_wdata = Wire(init = Mux(wb_ctrl.ninst, ninst.io.resp.bits.data, div.io.resp.bits.data))
+  val ll_waddr = Wire(init = Mux(wb_ctrl.ninst, ninst.io.resp.bits.tag, div.io.resp.bits.tag))
+  val ll_wen = Wire(init = Mux(wb_ctrl.ninst, ninst.io.resp.fire(), div.io.resp.fire()))
+  // val ll_wdata = Wire(init = div.io.resp.bits.data)
+  // val ll_waddr = Wire(init = div.io.resp.bits.tag)
+  // val ll_wen = Wire(init = div.io.resp.fire())
+
+  // when (ninst.io.resp.fire()) {
+  //   div.io.resp.ready := Bool(false)
+  //   ll_wdata := ninst.io.resp.bits.data
+  //   ll_waddr := ninst.io.resp.bits.tag
+  //   ll_wen := Bool(true)
+  // }
+
   if (usingRoCC) {
     io.rocc.resp.ready := !wb_wxd
     when (io.rocc.resp.fire()) {
@@ -556,7 +568,7 @@ class Rocket(implicit p: Parameters) extends CoreModule()(p)
   def id_sboard_clear_bypass(r: UInt) = {
     // ll_waddr arrives late when D$ has ECC, so reshuffle the hazard check
     if (tileParams.dcache.get.dataECC.isInstanceOf[IdentityCode]) ll_wen && ll_waddr === r
-    else ninst.io.resp.fire() && ninst.io.resp.bits.tag === r || div.io.resp.fire() && div.io.resp.bits.tag === r || dmem_resp_replay && dmem_resp_xpu && dmem_resp_waddr === r
+    else div.io.resp.fire() && div.io.resp.bits.tag === r || ninst.io.resp.fire() && ninst.io.resp.bits.tag === r || dmem_resp_replay && dmem_resp_xpu && dmem_resp_waddr === r
   }
   val id_sboard_hazard = checkHazards(hazard_targets, rd => sboard.read(rd) && !id_sboard_clear_bypass(rd))
   sboard.set(wb_set_sboard && wb_wen, wb_waddr)
