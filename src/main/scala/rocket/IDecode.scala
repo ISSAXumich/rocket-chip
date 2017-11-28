@@ -231,6 +231,7 @@ class FDecode(implicit val p: Parameters) extends DecodeConstants
     FADD_S->    List(Y,Y,N,N,N,N,N,N,A2_X,   A1_X,   IMM_X, DW_X,  FN_X,     N,M_X,        MT_X, Y,Y,N,Y,N,N,CSR.N,N,N,N,N,N),
     FSUB_S->    List(Y,Y,N,N,N,N,N,N,A2_X,   A1_X,   IMM_X, DW_X,  FN_X,     N,M_X,        MT_X, Y,Y,N,Y,N,N,CSR.N,N,N,N,N,N),
     FMUL_S->    List(Y,Y,N,N,N,N,N,N,A2_X,   A1_X,   IMM_X, DW_X,  FN_X,     N,M_X,        MT_X, Y,Y,N,Y,N,N,CSR.N,N,N,N,N,N),
+    FDIST_S->   List(Y,Y,N,N,N,N,N,N,A2_X,   A1_X,   IMM_X, DW_X,  FN_X,     N,M_X,        MT_X, Y,Y,N,Y,N,N,CSR.N,N,N,N,N,N),
     FMADD_S->   List(Y,Y,N,N,N,N,N,N,A2_X,   A1_X,   IMM_X, DW_X,  FN_X,     N,M_X,        MT_X, Y,Y,Y,Y,N,N,CSR.N,N,N,N,N,N),
     FMSUB_S->   List(Y,Y,N,N,N,N,N,N,A2_X,   A1_X,   IMM_X, DW_X,  FN_X,     N,M_X,        MT_X, Y,Y,Y,Y,N,N,CSR.N,N,N,N,N,N),
     FNMADD_S->  List(Y,Y,N,N,N,N,N,N,A2_X,   A1_X,   IMM_X, DW_X,  FN_X,     N,M_X,        MT_X, Y,Y,Y,Y,N,N,CSR.N,N,N,N,N,N),

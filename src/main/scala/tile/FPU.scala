@@ -13,6 +13,7 @@ import freechips.rocketchip.util._
 
 case class FPUParams(
   divSqrt: Boolean = true,
+  sfdistLatency: Int = 3,
   sfmaLatency: Int = 3,
   dfmaLatency: Int = 4
 )
@@ -41,6 +42,7 @@ trait HasFPUCtrlSigs {
   val div = Bool()
   val sqrt = Bool()
   val wflags = Bool()
+  val fdist = Bool()
 }
 
 class FPUCtrlSigs extends Bundle with HasFPUCtrlSigs
@@ -51,71 +53,72 @@ class FPUDecoder(implicit p: Parameters) extends FPUModule()(p) {
     val sigs = new FPUCtrlSigs().asOutput
   }
 
-  val default =       List(X,X,X,X,X,X,X,X,X,X,X,X,X,X,X,X)
+  val default =       List(X,X,X,X,X,X,X,X,X,X,X,X,X,X,X,X,X)
   val f =
-    Array(FLW      -> List(Y,Y,N,N,N,X,X,X,X,N,N,N,N,N,N,N),
-          FSW      -> List(Y,N,N,Y,N,Y,X,N,Y,N,Y,N,N,N,N,N),
-          FMV_S_X  -> List(N,Y,N,N,N,X,X,Y,N,Y,N,N,N,N,N,N),
-          FCVT_S_W -> List(N,Y,N,N,N,X,X,Y,Y,Y,N,N,N,N,N,Y),
-          FCVT_S_WU-> List(N,Y,N,N,N,X,X,Y,Y,Y,N,N,N,N,N,Y),
-          FCVT_S_L -> List(N,Y,N,N,N,X,X,Y,Y,Y,N,N,N,N,N,Y),
-          FCVT_S_LU-> List(N,Y,N,N,N,X,X,Y,Y,Y,N,N,N,N,N,Y),
-          FMV_X_S  -> List(N,N,Y,N,N,N,X,N,Y,N,Y,N,N,N,N,N),
-          FCLASS_S -> List(N,N,Y,N,N,N,X,Y,Y,N,Y,N,N,N,N,N),
-          FCVT_W_S -> List(N,N,Y,N,N,N,X,Y,Y,N,Y,N,N,N,N,Y),
-          FCVT_WU_S-> List(N,N,Y,N,N,N,X,Y,Y,N,Y,N,N,N,N,Y),
-          FCVT_L_S -> List(N,N,Y,N,N,N,X,Y,Y,N,Y,N,N,N,N,Y),
-          FCVT_LU_S-> List(N,N,Y,N,N,N,X,Y,Y,N,Y,N,N,N,N,Y),
-          FEQ_S    -> List(N,N,Y,Y,N,N,N,Y,Y,N,Y,N,N,N,N,Y),
-          FLT_S    -> List(N,N,Y,Y,N,N,N,Y,Y,N,Y,N,N,N,N,Y),
-          FLE_S    -> List(N,N,Y,Y,N,N,N,Y,Y,N,Y,N,N,N,N,Y),
-          FSGNJ_S  -> List(N,Y,Y,Y,N,N,N,Y,Y,N,N,Y,N,N,N,N),
-          FSGNJN_S -> List(N,Y,Y,Y,N,N,N,Y,Y,N,N,Y,N,N,N,N),
-          FSGNJX_S -> List(N,Y,Y,Y,N,N,N,Y,Y,N,N,Y,N,N,N,N),
-          FMIN_S   -> List(N,Y,Y,Y,N,N,N,Y,Y,N,N,Y,N,N,N,Y),
-          FMAX_S   -> List(N,Y,Y,Y,N,N,N,Y,Y,N,N,Y,N,N,N,Y),
-          FADD_S   -> List(N,Y,Y,Y,N,N,Y,Y,Y,N,N,N,Y,N,N,Y),
-          FSUB_S   -> List(N,Y,Y,Y,N,N,Y,Y,Y,N,N,N,Y,N,N,Y),
-          FMUL_S   -> List(N,Y,Y,Y,N,N,N,Y,Y,N,N,N,Y,N,N,Y),
-          FMADD_S  -> List(N,Y,Y,Y,Y,N,N,Y,Y,N,N,N,Y,N,N,Y),
-          FMSUB_S  -> List(N,Y,Y,Y,Y,N,N,Y,Y,N,N,N,Y,N,N,Y),
-          FNMADD_S -> List(N,Y,Y,Y,Y,N,N,Y,Y,N,N,N,Y,N,N,Y),
-          FNMSUB_S -> List(N,Y,Y,Y,Y,N,N,Y,Y,N,N,N,Y,N,N,Y),
-          FDIV_S   -> List(N,Y,Y,Y,N,N,N,Y,Y,N,N,N,N,Y,N,Y),
-          FSQRT_S  -> List(N,Y,Y,N,N,N,X,Y,Y,N,N,N,N,N,Y,Y))
+    Array(FLW      -> List(Y,Y,N,N,N,X,X,X,X,N,N,N,N,N,N,N,N),
+          FSW      -> List(Y,N,N,Y,N,Y,X,N,Y,N,Y,N,N,N,N,N,N),
+          FMV_S_X  -> List(N,Y,N,N,N,X,X,Y,N,Y,N,N,N,N,N,N,N),
+          FCVT_S_W -> List(N,Y,N,N,N,X,X,Y,Y,Y,N,N,N,N,N,Y,N),
+          FCVT_S_WU-> List(N,Y,N,N,N,X,X,Y,Y,Y,N,N,N,N,N,Y,N),
+          FCVT_S_L -> List(N,Y,N,N,N,X,X,Y,Y,Y,N,N,N,N,N,Y,N),
+          FCVT_S_LU-> List(N,Y,N,N,N,X,X,Y,Y,Y,N,N,N,N,N,Y,N),
+          FMV_X_S  -> List(N,N,Y,N,N,N,X,N,Y,N,Y,N,N,N,N,N,N),
+          FCLASS_S -> List(N,N,Y,N,N,N,X,Y,Y,N,Y,N,N,N,N,N,N),
+          FCVT_W_S -> List(N,N,Y,N,N,N,X,Y,Y,N,Y,N,N,N,N,Y,N),
+          FCVT_WU_S-> List(N,N,Y,N,N,N,X,Y,Y,N,Y,N,N,N,N,Y,N),
+          FCVT_L_S -> List(N,N,Y,N,N,N,X,Y,Y,N,Y,N,N,N,N,Y,N),
+          FCVT_LU_S-> List(N,N,Y,N,N,N,X,Y,Y,N,Y,N,N,N,N,Y,N),
+          FEQ_S    -> List(N,N,Y,Y,N,N,N,Y,Y,N,Y,N,N,N,N,Y,N),
+          FLT_S    -> List(N,N,Y,Y,N,N,N,Y,Y,N,Y,N,N,N,N,Y,N),
+          FLE_S    -> List(N,N,Y,Y,N,N,N,Y,Y,N,Y,N,N,N,N,Y,N),
+          FSGNJ_S  -> List(N,Y,Y,Y,N,N,N,Y,Y,N,N,Y,N,N,N,N,N),
+          FSGNJN_S -> List(N,Y,Y,Y,N,N,N,Y,Y,N,N,Y,N,N,N,N,N),
+          FSGNJX_S -> List(N,Y,Y,Y,N,N,N,Y,Y,N,N,Y,N,N,N,N,N),
+          FMIN_S   -> List(N,Y,Y,Y,N,N,N,Y,Y,N,N,Y,N,N,N,Y,N),
+          FMAX_S   -> List(N,Y,Y,Y,N,N,N,Y,Y,N,N,Y,N,N,N,Y,N),
+          FADD_S   -> List(N,Y,Y,Y,N,N,Y,Y,Y,N,N,N,Y,N,N,Y,N),
+          FSUB_S   -> List(N,Y,Y,Y,N,N,Y,Y,Y,N,N,N,Y,N,N,Y,N),
+          FMUL_S   -> List(N,Y,Y,Y,N,N,N,Y,Y,N,N,N,Y,N,N,Y,N),
+          FDIST_S  -> List(N,Y,Y,Y,N,N,N,Y,Y,N,N,N,N,N,N,Y,Y),
+          FMADD_S  -> List(N,Y,Y,Y,Y,N,N,Y,Y,N,N,N,Y,N,N,Y,N),
+          FMSUB_S  -> List(N,Y,Y,Y,Y,N,N,Y,Y,N,N,N,Y,N,N,Y,N),
+          FNMADD_S -> List(N,Y,Y,Y,Y,N,N,Y,Y,N,N,N,Y,N,N,Y,N),
+          FNMSUB_S -> List(N,Y,Y,Y,Y,N,N,Y,Y,N,N,N,Y,N,N,Y,N),
+          FDIV_S   -> List(N,Y,Y,Y,N,N,N,Y,Y,N,N,N,N,Y,N,Y,N),
+          FSQRT_S  -> List(N,Y,Y,N,N,N,X,Y,Y,N,N,N,N,N,Y,Y,N))
   val d =
-    Array(FLD      -> List(Y,Y,N,N,N,X,X,X,N,N,N,N,N,N,N,N),
-          FSD      -> List(Y,N,N,Y,N,Y,X,N,N,N,Y,N,N,N,N,N),
-          FMV_D_X  -> List(N,Y,N,N,N,X,X,X,N,Y,N,N,N,N,N,N),
-          FCVT_D_W -> List(N,Y,N,N,N,X,X,N,N,Y,N,N,N,N,N,Y),
-          FCVT_D_WU-> List(N,Y,N,N,N,X,X,N,N,Y,N,N,N,N,N,Y),
-          FCVT_D_L -> List(N,Y,N,N,N,X,X,N,N,Y,N,N,N,N,N,Y),
-          FCVT_D_LU-> List(N,Y,N,N,N,X,X,N,N,Y,N,N,N,N,N,Y),
-          FMV_X_D  -> List(N,N,Y,N,N,N,X,N,N,N,Y,N,N,N,N,N),
-          FCLASS_D -> List(N,N,Y,N,N,N,X,N,N,N,Y,N,N,N,N,N),
-          FCVT_W_D -> List(N,N,Y,N,N,N,X,N,N,N,Y,N,N,N,N,Y),
-          FCVT_WU_D-> List(N,N,Y,N,N,N,X,N,N,N,Y,N,N,N,N,Y),
-          FCVT_L_D -> List(N,N,Y,N,N,N,X,N,N,N,Y,N,N,N,N,Y),
-          FCVT_LU_D-> List(N,N,Y,N,N,N,X,N,N,N,Y,N,N,N,N,Y),
-          FCVT_S_D -> List(N,Y,Y,N,N,N,X,N,Y,N,N,Y,N,N,N,Y),
-          FCVT_D_S -> List(N,Y,Y,N,N,N,X,Y,N,N,N,Y,N,N,N,Y),
-          FEQ_D    -> List(N,N,Y,Y,N,N,N,N,N,N,Y,N,N,N,N,Y),
-          FLT_D    -> List(N,N,Y,Y,N,N,N,N,N,N,Y,N,N,N,N,Y),
-          FLE_D    -> List(N,N,Y,Y,N,N,N,N,N,N,Y,N,N,N,N,Y),
-          FSGNJ_D  -> List(N,Y,Y,Y,N,N,N,N,N,N,N,Y,N,N,N,N),
-          FSGNJN_D -> List(N,Y,Y,Y,N,N,N,N,N,N,N,Y,N,N,N,N),
-          FSGNJX_D -> List(N,Y,Y,Y,N,N,N,N,N,N,N,Y,N,N,N,N),
-          FMIN_D   -> List(N,Y,Y,Y,N,N,N,N,N,N,N,Y,N,N,N,Y),
-          FMAX_D   -> List(N,Y,Y,Y,N,N,N,N,N,N,N,Y,N,N,N,Y),
-          FADD_D   -> List(N,Y,Y,Y,N,N,Y,N,N,N,N,N,Y,N,N,Y),
-          FSUB_D   -> List(N,Y,Y,Y,N,N,Y,N,N,N,N,N,Y,N,N,Y),
-          FMUL_D   -> List(N,Y,Y,Y,N,N,N,N,N,N,N,N,Y,N,N,Y),
-          FMADD_D  -> List(N,Y,Y,Y,Y,N,N,N,N,N,N,N,Y,N,N,Y),
-          FMSUB_D  -> List(N,Y,Y,Y,Y,N,N,N,N,N,N,N,Y,N,N,Y),
-          FNMADD_D -> List(N,Y,Y,Y,Y,N,N,N,N,N,N,N,Y,N,N,Y),
-          FNMSUB_D -> List(N,Y,Y,Y,Y,N,N,N,N,N,N,N,Y,N,N,Y),
-          FDIV_D   -> List(N,Y,Y,Y,N,N,N,N,N,N,N,N,N,Y,N,Y),
-          FSQRT_D  -> List(N,Y,Y,N,N,N,X,N,N,N,N,N,N,N,Y,Y))
+    Array(FLD      -> List(Y,Y,N,N,N,X,X,X,N,N,N,N,N,N,N,N,N),
+          FSD      -> List(Y,N,N,Y,N,Y,X,N,N,N,Y,N,N,N,N,N,N),
+          FMV_D_X  -> List(N,Y,N,N,N,X,X,X,N,Y,N,N,N,N,N,N,N),
+          FCVT_D_W -> List(N,Y,N,N,N,X,X,N,N,Y,N,N,N,N,N,Y,N),
+          FCVT_D_WU-> List(N,Y,N,N,N,X,X,N,N,Y,N,N,N,N,N,Y,N),
+          FCVT_D_L -> List(N,Y,N,N,N,X,X,N,N,Y,N,N,N,N,N,Y,N),
+          FCVT_D_LU-> List(N,Y,N,N,N,X,X,N,N,Y,N,N,N,N,N,Y,N),
+          FMV_X_D  -> List(N,N,Y,N,N,N,X,N,N,N,Y,N,N,N,N,N,N),
+          FCLASS_D -> List(N,N,Y,N,N,N,X,N,N,N,Y,N,N,N,N,N,N),
+          FCVT_W_D -> List(N,N,Y,N,N,N,X,N,N,N,Y,N,N,N,N,Y,N),
+          FCVT_WU_D-> List(N,N,Y,N,N,N,X,N,N,N,Y,N,N,N,N,Y,N),
+          FCVT_L_D -> List(N,N,Y,N,N,N,X,N,N,N,Y,N,N,N,N,Y,N),
+          FCVT_LU_D-> List(N,N,Y,N,N,N,X,N,N,N,Y,N,N,N,N,Y,N),
+          FCVT_S_D -> List(N,Y,Y,N,N,N,X,N,Y,N,N,Y,N,N,N,Y,N),
+          FCVT_D_S -> List(N,Y,Y,N,N,N,X,Y,N,N,N,Y,N,N,N,Y,N),
+          FEQ_D    -> List(N,N,Y,Y,N,N,N,N,N,N,Y,N,N,N,N,Y,N),
+          FLT_D    -> List(N,N,Y,Y,N,N,N,N,N,N,Y,N,N,N,N,Y,N),
+          FLE_D    -> List(N,N,Y,Y,N,N,N,N,N,N,Y,N,N,N,N,Y,N),
+          FSGNJ_D  -> List(N,Y,Y,Y,N,N,N,N,N,N,N,Y,N,N,N,N,N),
+          FSGNJN_D -> List(N,Y,Y,Y,N,N,N,N,N,N,N,Y,N,N,N,N,N),
+          FSGNJX_D -> List(N,Y,Y,Y,N,N,N,N,N,N,N,Y,N,N,N,N,N),
+          FMIN_D   -> List(N,Y,Y,Y,N,N,N,N,N,N,N,Y,N,N,N,Y,N),
+          FMAX_D   -> List(N,Y,Y,Y,N,N,N,N,N,N,N,Y,N,N,N,Y,N),
+          FADD_D   -> List(N,Y,Y,Y,N,N,Y,N,N,N,N,N,Y,N,N,Y,N),
+          FSUB_D   -> List(N,Y,Y,Y,N,N,Y,N,N,N,N,N,Y,N,N,Y,N),
+          FMUL_D   -> List(N,Y,Y,Y,N,N,N,N,N,N,N,N,Y,N,N,Y,N),
+          FMADD_D  -> List(N,Y,Y,Y,Y,N,N,N,N,N,N,N,Y,N,N,Y,N),
+          FMSUB_D  -> List(N,Y,Y,Y,Y,N,N,N,N,N,N,N,Y,N,N,Y,N),
+          FNMADD_D -> List(N,Y,Y,Y,Y,N,N,N,N,N,N,N,Y,N,N,Y,N),
+          FNMSUB_D -> List(N,Y,Y,Y,Y,N,N,N,N,N,N,N,Y,N,N,Y,N),
+          FDIV_D   -> List(N,Y,Y,Y,N,N,N,N,N,N,N,N,N,Y,N,Y,N),
+          FSQRT_D  -> List(N,Y,Y,N,N,N,X,N,N,N,N,N,N,N,Y,Y,N))
 
   val insns = fLen match {
     case 32 => f
@@ -125,7 +128,7 @@ class FPUDecoder(implicit p: Parameters) extends FPUModule()(p) {
   val s = io.sigs
   val sigs = Seq(s.ldst, s.wen, s.ren1, s.ren2, s.ren3, s.swap12,
                  s.swap23, s.singleIn, s.singleOut, s.fromint, s.toint,
-                 s.fastpipe, s.fma, s.div, s.sqrt, s.wflags)
+                 s.fastpipe, s.fma, s.div, s.sqrt, s.wflags, s.fdist)
   sigs zip decoder map {case(s,d) => s := d}
 }
 
@@ -605,6 +608,69 @@ class MulAddRecFNPipe(latency: Int, expWidth: Int, sigWidth: Int) extends Module
     io.exceptionFlags := roundRawFNToRecFN.io.exceptionFlags
 }
 
+class DistRecFNPipe(latency: Int, expWidth: Int, sigWidth: Int) extends Module
+{
+    require(latency<=2) 
+
+    val io = new Bundle {
+        val validin = Bool(INPUT)
+        val op = Bits(INPUT, 2)
+        val a = Bits(INPUT, expWidth + sigWidth + 1)
+        val b = Bits(INPUT, expWidth + sigWidth + 1)
+        val c = Bits(INPUT, expWidth + sigWidth + 1)
+        val roundingMode   = UInt(INPUT, 3)
+        val detectTininess = UInt(INPUT, 1)
+        val out = Bits(OUTPUT, expWidth + sigWidth + 1)
+        val exceptionFlags = Bits(OUTPUT, 5)
+        val validout = Bool(OUTPUT)
+    }
+
+    //------------------------------------------------------------------------
+    //------------------------------------------------------------------------
+    val distRecFNToRaw_preMul =
+        Module(new hardfloat.MulAddRecFNToRaw_preMul(expWidth, sigWidth))
+    val distRecFNToRaw_postMul =
+        Module(new hardfloat.MulAddRecFNToRaw_postMul(expWidth, sigWidth))
+
+    distRecFNToRaw_preMul.io.op := io.op
+    distRecFNToRaw_preMul.io.a  := io.a
+    distRecFNToRaw_preMul.io.b  := io.b
+    distRecFNToRaw_preMul.io.c  := io.c
+
+    val mulAddResult =
+        (distRecFNToRaw_preMul.io.mulAddA *
+             distRecFNToRaw_preMul.io.mulAddB) +&
+            distRecFNToRaw_preMul.io.mulAddC
+
+    val valid_stage0 = Wire(Bool())
+    val roundingMode_stage0 = Wire(UInt(width=3))
+    val detectTininess_stage0 = Wire(UInt(width=1))
+  
+    val postmul_regs = if(latency>0) 1 else 0
+    distRecFNToRaw_postMul.io.fromPreMul   := Pipe(io.validin, distRecFNToRaw_preMul.io.toPostMul, postmul_regs).bits
+    distRecFNToRaw_postMul.io.mulAddResult := Pipe(io.validin, mulAddResult, postmul_regs).bits
+    distRecFNToRaw_postMul.io.roundingMode := Pipe(io.validin, io.roundingMode, postmul_regs).bits
+    roundingMode_stage0                      := Pipe(io.validin, io.roundingMode, postmul_regs).bits
+    detectTininess_stage0                    := Pipe(io.validin, io.detectTininess, postmul_regs).bits
+    valid_stage0                             := Pipe(io.validin, false.B, postmul_regs).valid
+    
+    //------------------------------------------------------------------------
+    //------------------------------------------------------------------------
+    val roundRawFNToRecFN = Module(new hardfloat.RoundRawFNToRecFN(expWidth, sigWidth, 0))
+
+    val round_regs = if(latency==2) 1 else 0
+    roundRawFNToRecFN.io.invalidExc         := Pipe(valid_stage0, distRecFNToRaw_postMul.io.invalidExc, round_regs).bits
+    roundRawFNToRecFN.io.in                 := Pipe(valid_stage0, distRecFNToRaw_postMul.io.rawOut, round_regs).bits
+    roundRawFNToRecFN.io.roundingMode       := Pipe(valid_stage0, roundingMode_stage0, round_regs).bits
+    roundRawFNToRecFN.io.detectTininess     := Pipe(valid_stage0, detectTininess_stage0, round_regs).bits
+    io.validout                             := Pipe(valid_stage0, false.B, round_regs).valid
+
+    roundRawFNToRecFN.io.infiniteExc := Bool(false)
+
+    io.out            := roundRawFNToRecFN.io.out
+    io.exceptionFlags := roundRawFNToRecFN.io.exceptionFlags
+}
+
 class FPUFMAPipe(val latency: Int, val t: FType)(implicit p: Parameters) extends FPUModule()(p) {
   require(latency>0)
 
@@ -639,6 +705,72 @@ class FPUFMAPipe(val latency: Int, val t: FType)(implicit p: Parameters) extends
   res.exc := fma.io.exceptionFlags
 
   io.out := Pipe(fma.io.validout, res, (latency-3) max 0)
+}
+
+class FPUDistPipe(val latency: Int, val t: FType)(implicit p: Parameters) extends FPUModule()(p) {
+  require(latency>0)
+
+  val io = new Bundle {
+    val in = Valid(new FPInput).flip
+    val out = Valid(new FPResult)
+  }
+
+  val valid = Reg(next=io.in.valid)
+  val in = Reg(new FPInput)
+  when (io.in.valid) {
+    val one = UInt(1) << (t.sig + t.exp - 1)
+    val zero = (io.in.bits.in1 ^ io.in.bits.in2) & (UInt(1) << (t.sig + t.exp))
+    val cmd_fma = io.in.bits.ren3
+    val cmd_addsub = io.in.bits.swap23
+    in := io.in.bits
+    when (cmd_addsub) { in.in2 := one }
+    when (!(cmd_fma || cmd_addsub)) { in.in3 := zero }
+  }
+
+  val fma1 = Module(new DistRecFNPipe((latency-1) min 2, t.exp, t.sig))
+  fma1.io.validin := valid
+  fma1.io.op := in.fmaCmd
+  fma1.io.roundingMode := in.rm
+  fma1.io.detectTininess := hardfloat.consts.tininess_afterRounding
+  fma1.io.a := in.in1
+  fma1.io.b := in.in2
+  fma1.io.c := in.in3
+
+  val res1 = Wire(new FPResult)
+  res1.data := sanitizeNaN(fma1.io.out, t)
+  res1.exc := fma1.io.exceptionFlags
+
+  // io.out1 := Pipe(fma1.io.validout, res1, (latency-3) max 0)
+
+  val fma2 = Module(new DistRecFNPipe((latency-1) min 2, t.exp, t.sig))
+  fma2.io.validin := valid
+  fma2.io.op := in.fmaCmd
+  fma2.io.roundingMode := in.rm
+  fma2.io.detectTininess := hardfloat.consts.tininess_afterRounding
+  fma2.io.a := in.in1
+  fma2.io.b := in.in2
+  fma2.io.c := in.in3
+
+  val res2 = Wire(new FPResult)
+  res2.data := sanitizeNaN(fma2.io.out, t)
+  res2.exc := fma2.io.exceptionFlags
+
+  // io.out2 := Pipe(fma2.io.validout, res2, (latency-3) max 0)
+
+  val fma3 = Module(new DistRecFNPipe((latency-1) min 2, t.exp, t.sig))
+  fma3.io.validin := valid
+  fma3.io.op := in.fmaCmd
+  fma3.io.roundingMode := in.rm
+  fma3.io.detectTininess := hardfloat.consts.tininess_afterRounding
+  fma3.io.a := in.in1
+  fma3.io.b := in.in2
+  fma3.io.c := in.in3
+
+  val res3 = Wire(new FPResult)
+  res3.data := sanitizeNaN(fma3.io.out, t)
+  res3.exc := fma3.io.exceptionFlags
+
+  io.out := Pipe(fma3.io.validout, res3, (latency-3) max 0)
 }
 
 class FPU(cfg: FPUParams)(implicit p: Parameters) extends FPUModule()(p) {
@@ -709,6 +841,10 @@ class FPU(cfg: FPUParams)(implicit p: Parameters) extends FPUModule()(p) {
   sfma.io.in.valid := req_valid && ex_ctrl.fma && ex_ctrl.singleOut
   sfma.io.in.bits := fuInput(Some(sfma.t))
 
+  val sfdist = Module(new FPUFMAPipe(cfg.sfdistLatency, FType.S))
+  sfdist.io.in.valid := req_valid && ex_ctrl.fdist && ex_ctrl.singleOut
+  sfdist.io.in.bits := fuInput(Some(sfdist.t))
+
   val fpiu = Module(new FPToInt)
   fpiu.io.in.valid := req_valid && (ex_ctrl.toint || ex_ctrl.div || ex_ctrl.sqrt || (ex_ctrl.fastpipe && ex_ctrl.wflags))
   fpiu.io.in.bits := fuInput(None)
@@ -741,7 +877,8 @@ class FPU(cfg: FPUParams)(implicit p: Parameters) extends FPUModule()(p) {
   val pipes = List(
     Pipe(fpmu, fpmu.latency, (c: FPUCtrlSigs) => c.fastpipe, fpmu.io.out.bits),
     Pipe(ifpu, ifpu.latency, (c: FPUCtrlSigs) => c.fromint, ifpu.io.out.bits),
-    Pipe(sfma, sfma.latency, (c: FPUCtrlSigs) => c.fma && c.singleOut, sfma.io.out.bits)) ++
+    Pipe(sfma, sfma.latency, (c: FPUCtrlSigs) => c.fma && c.singleOut, sfma.io.out.bits),
+    Pipe(sfdist, sfdist.latency, (c: FPUCtrlSigs) => c.fdist && c.singleOut, sfdist.io.out.bits)) ++
     (fLen > 32).option({
           val dfma = Module(new FPUFMAPipe(cfg.dfmaLatency, FType.D))
           dfma.io.in.valid := req_valid && ex_ctrl.fma && !ex_ctrl.singleOut

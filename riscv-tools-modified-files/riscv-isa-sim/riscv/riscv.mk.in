@@ -229,6 +229,7 @@ riscv_insn_list = \
 	fsqrt_d \
 	fsqrt_q \
 	fsqrt_s \
+	fdist_s \
 	fsub_d \
 	fsub_q \
 	fsub_s \

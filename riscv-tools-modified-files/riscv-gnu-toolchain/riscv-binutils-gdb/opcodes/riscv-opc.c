@@ -467,6 +467,8 @@ const struct riscv_opcode riscv_opcodes[] =
 {"fsub.s",    "F",   "D,S,T,m",  MATCH_FSUB_S, MASK_FSUB_S, match_opcode, 0 },
 {"fmul.s",    "F",   "D,S,T",  MATCH_FMUL_S | MASK_RM, MASK_FMUL_S | MASK_RM, match_opcode, 0 },
 {"fmul.s",    "F",   "D,S,T,m",  MATCH_FMUL_S, MASK_FMUL_S, match_opcode, 0 },
+{"fdist.s",   "F",   "D,S,T",  MATCH_FDIST_S | MASK_RM, MASK_FDIST_S | MASK_RM, match_opcode, 0 },
+{"fdist.s",   "F",   "D,S,T,m",  MATCH_FDIST_S, MASK_FDIST_S, match_opcode, 0 },
 {"fdiv.s",    "F",   "D,S,T",  MATCH_FDIV_S | MASK_RM, MASK_FDIV_S | MASK_RM, match_opcode, 0 },
 {"fdiv.s",    "F",   "D,S,T,m",  MATCH_FDIV_S, MASK_FDIV_S, match_opcode, 0 },
 {"fsqrt.s",   "F",   "D,S",  MATCH_FSQRT_S | MASK_RM, MASK_FSQRT_S | MASK_RM, match_opcode, 0 },
