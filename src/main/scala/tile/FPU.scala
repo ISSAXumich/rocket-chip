@@ -799,43 +799,78 @@ class FPUDistPipe(val latency: Int, val t: FType)(implicit p: Parameters) extend
 }
 */
 
-class FPUFDistPipe(val latency: Int, val t: FType)(implicit p: Parameters) extends FPUModule()(p) {
+class FPUDistPipe(val latency: Int, val t: FType)(implicit p: Parameters) extends FPUModule()(p) {
   require(latency>0)
 
-  val io = new Bundle { //Now uses a cleaner input
-    val in = Valid(new FPDistInput).flip
-    val out = Valid(new FPResult) //Maybe add a done? signal
+  val io = new Bundle {
+    val in = Valid(new FPInput).flip
+    val out = Valid(new FPResult) 
   }
 
   val valid = Reg(next=io.in.valid)
-  val in = Reg(new FPDistInput)
+  val in = Reg(new FPInput)
   when (io.in.valid) {
-    //val one = UInt(1) << (t.sig + t.exp - 1)
-    
-    //val cmd_fma = io.in.bits.ren3
-    //val cmd_addsub = io.in.bits.swap23
+    val one = UInt(1) << (t.sig + t.exp - 1)
+    val zero = (io.in.bits.in1 ^ io.in.bits.in2) & (UInt(1) << (t.sig + t.exp))
+    val cmd_fma = io.in.bits.ren3
+    val cmd_addsub = io.in.bits.swap23
     in := io.in.bits
-    //when (cmd_addsub) { in.in2 := one }
-    //when (!(cmd_fma || cmd_addsub)) { in.in3 := zero }
+    when (cmd_addsub) { in.in2 := one }
+    when (!(cmd_fma || cmd_addsub)) { in.in3 := zero }
   }
-  val zero = (io.in.bits.x1 ^ io.in.bits.x1) & (UInt(1) << (t.sig + t.exp))
 
   val fma = Module(new MulAddRecFNPipe((latency-1) min 2, t.exp, t.sig))
   fma.io.validin := valid
-  fma.io.op := UInt(0)/*in.fmaCmd*/ //Decide what op this is
+  fma.io.op := in.fmaCmd
   fma.io.roundingMode := in.rm
   fma.io.detectTininess := hardfloat.consts.tininess_afterRounding
-  fma.io.a := in.x1
-  fma.io.b := in.x2
-  fma.io.c := zero //Also decide how to pipe 0
-
-  //STAYS THE SAME!
+  fma.io.a := in.in1
+  fma.io.b := in.in2
+  fma.io.c := in.in3
 
   val res = Wire(new FPResult)
   res.data := sanitizeNaN(fma.io.out, t)
   res.exc := fma.io.exceptionFlags
 
-  io.out := Pipe(fma.io.validout, res, (latency-3) max 0) //When(fma.io.validout)...
+  io.out := Pipe(fma.io.validout, res, (latency-3) max 0)
+
+  //NEW STUFF
+  // require(latency>0)
+
+  // val io = new Bundle { //Now uses a cleaner input
+  //   val in = Valid(new FPDistInput).flip
+  //   val out = Valid(new FPResult) //Maybe add a done? signal
+  // }
+
+  // val valid = Reg(next=io.in.valid)
+  // val in = Reg(new FPDistInput)
+  // when (io.in.valid) {
+  //   //val one = UInt(1) << (t.sig + t.exp - 1)
+    
+  //   //val cmd_fma = io.in.bits.ren3
+  //   //val cmd_addsub = io.in.bits.swap23
+  //   in := io.in.bits
+  //   //when (cmd_addsub) { in.in2 := one }
+  //   //when (!(cmd_fma || cmd_addsub)) { in.in3 := zero }
+  // }
+  // val zero = (io.in.bits.x1 ^ io.in.bits.x1) & (UInt(1) << (t.sig + t.exp))
+
+  // val fma = Module(new MulAddRecFNPipe((latency-1) min 2, t.exp, t.sig))
+  // fma.io.validin := valid
+  // fma.io.op := UInt(0)/*in.fmaCmd*/ //Decide what op this is
+  // fma.io.roundingMode := in.rm
+  // fma.io.detectTininess := hardfloat.consts.tininess_afterRounding
+  // fma.io.a := in.x1
+  // fma.io.b := in.x2
+  // fma.io.c := zero //Also decide how to pipe 0
+
+  // //STAYS THE SAME!
+
+  // val res = Wire(new FPResult)
+  // res.data := sanitizeNaN(fma.io.out, t)
+  // res.exc := fma.io.exceptionFlags
+
+  // io.out := Pipe(fma.io.validout, res, (latency-3) max 0) //When(fma.io.validout)...
 }
 
 class FPU(cfg: FPUParams)(implicit p: Parameters) extends FPUModule()(p) {
@@ -906,9 +941,9 @@ class FPU(cfg: FPUParams)(implicit p: Parameters) extends FPUModule()(p) {
   sfma.io.in.valid := req_valid && ex_ctrl.fma && ex_ctrl.singleOut
   sfma.io.in.bits := fuInput(Some(sfma.t))
 
-  //val sfdist = Module(new FPUFMAPipe(cfg.sfdistLatency, FType.S))
-  //sfdist.io.in.valid := req_valid && ex_ctrl.fdist && ex_ctrl.singleOut
-  //sfdist.io.in.bits := fuInput(Some(sfdist.t))
+  val sfdist = Module(new FPUDistPipe(cfg.sfdistLatency, FType.S))
+  sfdist.io.in.valid := req_valid && ex_ctrl.fdist && ex_ctrl.singleOut
+  sfdist.io.in.bits := fuInput(Some(sfdist.t))
 
   val fpiu = Module(new FPToInt)
   fpiu.io.in.valid := req_valid && (ex_ctrl.toint || ex_ctrl.div || ex_ctrl.sqrt || (ex_ctrl.fastpipe && ex_ctrl.wflags))
@@ -942,8 +977,9 @@ class FPU(cfg: FPUParams)(implicit p: Parameters) extends FPUModule()(p) {
   val pipes = List(
     Pipe(fpmu, fpmu.latency, (c: FPUCtrlSigs) => c.fastpipe, fpmu.io.out.bits),
     Pipe(ifpu, ifpu.latency, (c: FPUCtrlSigs) => c.fromint, ifpu.io.out.bits),
-    Pipe(sfma, sfma.latency, (c: FPUCtrlSigs) => c.fma && c.singleOut, sfma.io.out.bits)) ++
-    //Pipe(sfdist, sfdist.latency, (c: FPUCtrlSigs) => c.fdist && c.singleOut, sfdist.io.out.bits)) ++
+    Pipe(sfma, sfma.latency, (c: FPUCtrlSigs) => c.fma && c.singleOut, sfma.io.out.bits),
+    Pipe(sfdist, sfdist.latency, (c: FPUCtrlSigs) => c.fdist && c.singleOut, sfdist.io.out.bits)) ++
+    // Pipe(sfdist, sfdist.latency, (c: FPUCtrlSigs) => c.fdist && c.singleOut, sfdist.io.out.bits)) ++
     (fLen > 32).option({
           val dfma = Module(new FPUFMAPipe(cfg.dfmaLatency, FType.D))
           dfma.io.in.valid := req_valid && ex_ctrl.fma && !ex_ctrl.singleOut
@@ -968,7 +1004,7 @@ class FPU(cfg: FPUParams)(implicit p: Parameters) extends FPUModule()(p) {
 
   val wen = Reg(init=Bits(0, maxLatency-1))
   val wbInfo = Reg(Vec(maxLatency-1, new WBInfo))
-  val mem_wen = mem_reg_valid && (mem_ctrl.fma || mem_ctrl.fastpipe || mem_ctrl.fromint)
+  val mem_wen = mem_reg_valid && (mem_ctrl.fma || mem_ctrl.fdist || mem_ctrl.fastpipe || mem_ctrl.fromint)
   val write_port_busy = RegEnable(mem_wen && (memLatencyMask & latencyMask(ex_ctrl, 1)).orR || (wen & latencyMask(ex_ctrl, 0)).orR, req_valid)
 
   for (i <- 0 until maxLatency-2) {
