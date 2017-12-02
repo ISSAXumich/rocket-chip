@@ -88,7 +88,7 @@ match_opcode (const struct riscv_opcode *op, insn_t insn)
 
 static int
 match_never (const struct riscv_opcode *op ATTRIBUTE_UNUSED,
-	     insn_t insn ATTRIBUTE_UNUSED)
+       insn_t insn ATTRIBUTE_UNUSED)
 {
   return 0;
 }
@@ -117,16 +117,16 @@ static int
 match_c_addi16sp (const struct riscv_opcode *op, insn_t insn)
 {
   return (match_opcode (op, insn)
-	  && (((insn & MASK_RD) >> OP_SH_RD) == 2)
-	  && EXTRACT_RVC_ADDI16SP_IMM (insn) != 0);
+    && (((insn & MASK_RD) >> OP_SH_RD) == 2)
+    && EXTRACT_RVC_ADDI16SP_IMM (insn) != 0);
 }
 
 static int
 match_c_lui (const struct riscv_opcode *op, insn_t insn)
 {
   return (match_rd_nonzero (op, insn)
-	  && (((insn & MASK_RD) >> OP_SH_RD) != 2)
-	  && EXTRACT_RVC_LUI_IMM (insn) != 0);
+    && (((insn & MASK_RD) >> OP_SH_RD) != 2)
+    && EXTRACT_RVC_LUI_IMM (insn) != 0);
 }
 
 static int
@@ -469,6 +469,12 @@ const struct riscv_opcode riscv_opcodes[] =
 {"fmul.s",    "F",   "D,S,T,m",  MATCH_FMUL_S, MASK_FMUL_S, match_opcode, 0 },
 {"fdist.s",   "F",   "D,S,T",  MATCH_FDIST_S | MASK_RM, MASK_FDIST_S | MASK_RM, match_opcode, 0 },
 {"fdist.s",   "F",   "D,S,T,m",  MATCH_FDIST_S, MASK_FDIST_S, match_opcode, 0 },
+{"fdist.s",   "F",   "D,s,T",  MATCH_FDIST_S | MASK_RM, MASK_FDIST_S | MASK_RM, match_opcode, 0 },
+{"fdist.s",   "F",   "D,s,T,m",  MATCH_FDIST_S, MASK_FDIST_S, match_opcode, 0 },
+{"fdist.s",   "F",   "d,S,T",  MATCH_FDIST_S | MASK_RM, MASK_FDIST_S | MASK_RM, match_opcode, 0 },
+{"fdist.s",   "F",   "d,S,T,m",  MATCH_FDIST_S, MASK_FDIST_S, match_opcode, 0 },
+{"fdist.s",   "F",   "d,s,T",  MATCH_FDIST_S | MASK_RM, MASK_FDIST_S | MASK_RM, match_opcode, 0 },
+{"fdist.s",   "F",   "d,s,T,m",  MATCH_FDIST_S, MASK_FDIST_S, match_opcode, 0 },
 {"fdiv.s",    "F",   "D,S,T",  MATCH_FDIV_S | MASK_RM, MASK_FDIV_S | MASK_RM, match_opcode, 0 },
 {"fdiv.s",    "F",   "D,S,T,m",  MATCH_FDIV_S, MASK_FDIV_S, match_opcode, 0 },
 {"fsqrt.s",   "F",   "D,S",  MATCH_FSQRT_S | MASK_RM, MASK_FSQRT_S | MASK_RM, match_opcode, 0 },

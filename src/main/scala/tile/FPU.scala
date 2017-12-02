@@ -13,7 +13,7 @@ import freechips.rocketchip.util._
 
 case class FPUParams(
   divSqrt: Boolean = true,
-  sfdistLatency: Int = 6,
+  sfdistLatency: Int = 12,
   sfmaLatency: Int = 3,
   dfmaLatency: Int = 4
 )
@@ -641,71 +641,6 @@ class MulAddRecFNPipe(latency: Int, expWidth: Int, sigWidth: Int) extends Module
     io.exceptionFlags := roundRawFNToRecFN.io.exceptionFlags
 }
 
-/*
-class DistRecFNPipe(latency: Int, expWidth: Int, sigWidth: Int) extends Module
-{
-    require(latency<=2) 
-
-    val io = new Bundle {
-        val validin = Bool(INPUT)
-        val op = Bits(INPUT, 2)
-        val a = Bits(INPUT, expWidth + sigWidth + 1)
-        val b = Bits(INPUT, expWidth + sigWidth + 1)
-        val c = Bits(INPUT, expWidth + sigWidth + 1)
-        val roundingMode   = UInt(INPUT, 3)
-        val detectTininess = UInt(INPUT, 1)
-        val out = Bits(OUTPUT, expWidth + sigWidth + 1)
-        val exceptionFlags = Bits(OUTPUT, 5)
-        val validout = Bool(OUTPUT)
-    }
-
-    //------------------------------------------------------------------------
-    //------------------------------------------------------------------------
-    val distRecFNToRaw_preMul =
-        Module(new hardfloat.MulAddRecFNToRaw_preMul(expWidth, sigWidth))
-    val distRecFNToRaw_postMul =
-        Module(new hardfloat.MulAddRecFNToRaw_postMul(expWidth, sigWidth))
-
-    distRecFNToRaw_preMul.io.op := io.op
-    distRecFNToRaw_preMul.io.a  := io.a
-    distRecFNToRaw_preMul.io.b  := io.b
-    distRecFNToRaw_preMul.io.c  := io.c
-
-    val mulAddResult =
-        (distRecFNToRaw_preMul.io.mulAddA *
-             distRecFNToRaw_preMul.io.mulAddB) +&
-            distRecFNToRaw_preMul.io.mulAddC
-
-    val valid_stage0 = Wire(Bool())
-    val roundingMode_stage0 = Wire(UInt(width=3))
-    val detectTininess_stage0 = Wire(UInt(width=1))
-  
-    val postmul_regs = if(latency>0) 1 else 0
-    distRecFNToRaw_postMul.io.fromPreMul   := Pipe(io.validin, distRecFNToRaw_preMul.io.toPostMul, postmul_regs).bits
-    distRecFNToRaw_postMul.io.mulAddResult := Pipe(io.validin, mulAddResult, postmul_regs).bits
-    distRecFNToRaw_postMul.io.roundingMode := Pipe(io.validin, io.roundingMode, postmul_regs).bits
-    roundingMode_stage0                      := Pipe(io.validin, io.roundingMode, postmul_regs).bits
-    detectTininess_stage0                    := Pipe(io.validin, io.detectTininess, postmul_regs).bits
-    valid_stage0                             := Pipe(io.validin, false.B, postmul_regs).valid
-    
-    //------------------------------------------------------------------------
-    //------------------------------------------------------------------------
-    val roundRawFNToRecFN = Module(new hardfloat.RoundRawFNToRecFN(expWidth, sigWidth, 0))
-
-    val round_regs = if(latency==2) 1 else 0
-    roundRawFNToRecFN.io.invalidExc         := Pipe(valid_stage0, distRecFNToRaw_postMul.io.invalidExc, round_regs).bits
-    roundRawFNToRecFN.io.in                 := Pipe(valid_stage0, distRecFNToRaw_postMul.io.rawOut, round_regs).bits
-    roundRawFNToRecFN.io.roundingMode       := Pipe(valid_stage0, roundingMode_stage0, round_regs).bits
-    roundRawFNToRecFN.io.detectTininess     := Pipe(valid_stage0, detectTininess_stage0, round_regs).bits
-    io.validout                             := Pipe(valid_stage0, false.B, round_regs).valid
-
-    roundRawFNToRecFN.io.infiniteExc := Bool(false)
-
-    io.out            := roundRawFNToRecFN.io.out
-    io.exceptionFlags := roundRawFNToRecFN.io.exceptionFlags
-}
-*/
-
 class FPUFMAPipe(val latency: Int, val t: FType)(implicit p: Parameters) extends FPUModule()(p) {
   require(latency>0)
 
@@ -742,79 +677,12 @@ class FPUFMAPipe(val latency: Int, val t: FType)(implicit p: Parameters) extends
   io.out := Pipe(fma.io.validout, res, (latency-3) max 0)
 }
 
-/*
 class FPUDistPipe(val latency: Int, val t: FType)(implicit p: Parameters) extends FPUModule()(p) {
   require(latency>0)
 
-  val io = new Bundle {
-    val in = Valid(new FPInput).flip
-    val out = Valid(new FPResult)
-  }
-
-  val valid = Reg(next=io.in.valid)
-  val in = Reg(new FPInput)
-  when (io.in.valid) {
-    val one = UInt(1) << (t.sig + t.exp - 1)
-    val zero = (io.in.bits.in1 ^ io.in.bits.in2) & (UInt(1) << (t.sig + t.exp))
-    val cmd_fma = io.in.bits.ren3
-    val cmd_addsub = io.in.bits.swap23
-    in := io.in.bits
-    when (cmd_addsub) { in.in2 := one }
-    when (!(cmd_fma || cmd_addsub)) { in.in3 := zero }
-  }
-
-  val fma1 = Module(new DistRecFNPipe((latency-1) min 2, t.exp, t.sig))
-  fma1.io.validin := valid
-  fma1.io.op := in.fmaCmd
-  fma1.io.roundingMode := in.rm
-  fma1.io.detectTininess := hardfloat.consts.tininess_afterRounding
-  fma1.io.a := in.in1
-  fma1.io.b := in.in2
-  fma1.io.c := in.in3
-
-  val res1 = Wire(new FPResult)
-  res1.data := sanitizeNaN(fma1.io.out, t)
-  res1.exc := fma1.io.exceptionFlags
-
-  // io.out1 := Pipe(fma1.io.validout, res1, (latency-3) max 0)
-
-  val fma2 = Module(new DistRecFNPipe((latency-1) min 2, t.exp, t.sig))
-  fma2.io.validin := valid
-  fma2.io.op := in.fmaCmd
-  fma2.io.roundingMode := in.rm
-  fma2.io.detectTininess := hardfloat.consts.tininess_afterRounding
-  fma2.io.a := in.in1
-  fma2.io.b := in.in2
-  fma2.io.c := in.in3
-
-  val res2 = Wire(new FPResult)
-  res2.data := sanitizeNaN(fma2.io.out, t)
-  res2.exc := fma2.io.exceptionFlags
-
-  // io.out2 := Pipe(fma2.io.validout, res2, (latency-3) max 0)
-
-  val fma3 = Module(new DistRecFNPipe((latency-1) min 2, t.exp, t.sig))
-  fma3.io.validin := valid
-  fma3.io.op := in.fmaCmd
-  fma3.io.roundingMode := in.rm
-  fma3.io.detectTininess := hardfloat.consts.tininess_afterRounding
-  fma3.io.a := in.in1
-  fma3.io.b := in.in2
-  fma3.io.c := in.in3
-
-  val res3 = Wire(new FPResult)
-  res3.data := sanitizeNaN(fma3.io.out, t)
-  res3.exc := fma3.io.exceptionFlags
-
-  io.out := Pipe(fma3.io.validout, res3, (latency-3) max 0)
-}
-*/
-
-class FPUDistPipe(val latency: Int, val t: FType)(implicit p: Parameters) extends FPUModule()(p) {
-  require(latency>0)
-
-  val s_ready :: s_mul :: s_add :: Nil = Enum(UInt(), 3)
-  val state = Reg(init=s_ready)
+  // float ftest1 = 3.2;
+  // float ftest2 = 2.1;
+  // float ftest3 = 0.1;
 
   val io = new Bundle {
     val in = Valid(new FPInput).flip
@@ -823,116 +691,131 @@ class FPUDistPipe(val latency: Int, val t: FType)(implicit p: Parameters) extend
 
   val valid = Reg(next=io.in.valid)
   val in = Reg(new FPInput)
-  // when (io.in.valid) {
-  //   val one = UInt(1) << (t.sig + t.exp - 1)
-  //   val zero = (io.in.bits.in1 ^ io.in.bits.in2) & (UInt(1) << (t.sig + t.exp))
-  //   val cmd_fma = io.in.bits.ren3 // false for add/sub/mul
-  //   val cmd_addsub = io.in.bits.swap23 // true for add/sub (not mul)
-  //   in := io.in.bits
-  //   when (cmd_addsub) { in.in2 := one } // makes it a * 1 + c
-  //   when (!(cmd_fma || cmd_addsub)) { in.in3 := zero } // true mul (not add/sub); makes it a * b + 0
-  // }
-
-  when (io.in.valid) {
-    val one = UInt(1) << (t.sig + t.exp - 1)
-    val zero = (io.in.bits.in1 ^ io.in.bits.in2) & (UInt(1) << (t.sig + t.exp))
-    val cmd_fma = io.in.bits.ren3 // false for add/sub/mul
-    val cmd_addsub = io.in.bits.swap23 // true for add/sub (not mul)
-    in := io.in.bits
-    when (cmd_addsub) { in.in2 := one } // makes it a * 1 + c
-    when (!(cmd_fma || cmd_addsub)) { in.in3 := zero } // true mul (not add/sub); makes it a * b + 0
-
-    state := s_mul
-  }
 
   val one = UInt(1) << (t.sig + t.exp - 1)
   val zero = (io.in.bits.in1 ^ io.in.bits.in2) & (UInt(1) << (t.sig + t.exp))
+  in := io.in.bits
 
-  val fma1 = Module(new MulAddRecFNPipe((latency-1) min 2, t.exp, t.sig))
-  fma1.io.validin := valid
-  fma1.io.op := 0x00//in.fmaCmd 
-  // 0x00 = cmd_addsub = false -> mul; cmd_addsub = true -> ADD
-  // 0x01 = cmd_addsub = false -> mul; cmd_addsub = true -> SUB
-  // 0x02 = cmd_addsub = false -> -mul; cmd_addsub = true -> -SUB
-  // 0x03 = cmd_addsub = false -> -mul; cmd_addsub = true -> -ADD
-  // in1 * in2 + in3
-  fma1.io.roundingMode := in.rm
-  fma1.io.detectTininess := hardfloat.consts.tininess_afterRounding
-  fma1.io.a := in.in1
-  fma1.io.b := in.in2
-  fma1.io.c := in.in3
+  // !swap23 -> 1 * 2 + 3
+  // swap23  -> 1 * 3 + 2
 
-  val fma2 = Module(new MulAddRecFNPipe((latency-1) min 2, t.exp, t.sig))
-  fma2.io.validin := fma1.io.validout
-  fma2.io.op := 0x00//in.fmaCmd
-  fma2.io.roundingMode := in.rm
-  fma2.io.detectTininess := hardfloat.consts.tininess_afterRounding
-  // fma1.io.a := fma1.io.out
-  // fma1.io.b := fma1.io.out
-  // fma1.io.c := fma1.io.out
-  fma2.io.a := sanitizeNaN(fma1.io.out, t)
-  fma2.io.b := one
-  fma2.io.c := sanitizeNaN(fma1.io.out, t)
+  val sub1_s1 = Module(new MulAddRecFNPipe((latency-1) min 2, t.exp, t.sig))
+  sub1_s1.io.validin := valid
+  // sub1_s1.io.op := 0x00 // ADD
+  sub1_s1.io.op := 0x01 // SUB
+  // sub1_s1.io.op := 0x02 // -SUB
+  // sub1_s1.io.op := 0x03 // -ADD
+  sub1_s1.io.roundingMode := in.rm
+  sub1_s1.io.detectTininess := hardfloat.consts.tininess_afterRounding
+  sub1_s1.io.a := in.in1
+  sub1_s1.io.b := one
+  sub1_s1.io.c := in.in2
 
-  when (state === s_mul) {
-    when (fma1.io.validout) {
-      state := s_add
-    }
-  }
-  when (state === s_add) {
-    when (fma2.io.validout) {
-      state := s_ready
-    }
-  }
+  val mult1_s2 = Module(new MulAddRecFNPipe((latency-1) min 2, t.exp, t.sig))
+  mult1_s2.io.validin := sub1_s1.io.validout
+  mult1_s2.io.op := 0x00 // ADD / MUL
+  // mult1_s2.io.op := 0x01 // SUB
+  // mult1_s2.io.op := 0x02 // -SUB
+  // mult1_s2.io.op := 0x03 // -ADD
+  mult1_s2.io.roundingMode := in.rm
+  mult1_s2.io.detectTininess := hardfloat.consts.tininess_afterRounding
+  mult1_s2.io.a := sanitizeNaN(sub1_s1.io.out, t)
+  mult1_s2.io.b := sanitizeNaN(sub1_s1.io.out, t)
+  mult1_s2.io.c := zero
+
+  val sub2_s1 = Module(new MulAddRecFNPipe((latency-1) min 2, t.exp, t.sig))
+  sub2_s1.io.validin := valid
+  // sub2_s1.io.op := 0x00 // ADD
+  sub2_s1.io.op := 0x01 // SUB
+  // sub2_s1.io.op := 0x02 // -SUB
+  // sub2_s1.io.op := 0x03 // -ADD
+  sub2_s1.io.roundingMode := in.rm
+  sub2_s1.io.detectTininess := hardfloat.consts.tininess_afterRounding
+  sub2_s1.io.a := in.in1
+  sub2_s1.io.b := one
+  sub2_s1.io.c := in.in2
+
+  val mult2_s2 = Module(new MulAddRecFNPipe((latency-1) min 2, t.exp, t.sig))
+  mult2_s2.io.validin := sub2_s1.io.validout
+  mult2_s2.io.op := 0x00 // ADD / MUL
+  // mult2_s2.io.op := 0x01 // SUB
+  // mult2_s2.io.op := 0x02 // -SUB
+  // mult2_s2.io.op := 0x03 // -ADD
+  mult2_s2.io.roundingMode := in.rm
+  mult2_s2.io.detectTininess := hardfloat.consts.tininess_afterRounding
+  mult2_s2.io.a := sanitizeNaN(sub2_s1.io.out, t)
+  mult2_s2.io.b := sanitizeNaN(sub2_s1.io.out, t)
+  mult2_s2.io.c := zero
+
+  val add1_s3 = Module(new MulAddRecFNPipe((latency-1) min 2, t.exp, t.sig))
+  add1_s3.io.validin := mult1_s2.io.validout &  mult2_s2.io.validout
+  add1_s3.io.op := 0x00 // ADD
+  // add1_s3.io.op := 0x01 // SUB
+  // add1_s3.io.op := 0x02 // -SUB
+  // add1_s3.io.op := 0x03 // -ADD
+  add1_s3.io.roundingMode := in.rm
+  add1_s3.io.detectTininess := hardfloat.consts.tininess_afterRounding
+  add1_s3.io.a := sanitizeNaN(mult1_s2.io.out, t)
+  add1_s3.io.b := one
+  add1_s3.io.c := sanitizeNaN(mult2_s2.io.out, t)
+
+  val sub3_s1 = Module(new MulAddRecFNPipe((latency-1) min 2, t.exp, t.sig))
+  sub3_s1.io.validin := valid
+  // sub3_s1.io.op := 0x00 // ADD
+  sub3_s1.io.op := 0x01 // SUB
+  // sub3_s1.io.op := 0x02 // -SUB
+  // sub3_s1.io.op := 0x03 // -ADD
+  sub3_s1.io.roundingMode := in.rm
+  sub3_s1.io.detectTininess := hardfloat.consts.tininess_afterRounding
+  sub3_s1.io.a := in.in1
+  sub3_s1.io.b := one
+  sub3_s1.io.c := in.in2
+
+  val mult3_s2 = Module(new MulAddRecFNPipe((latency-1) min 2, t.exp, t.sig))
+  mult3_s2.io.validin := sub3_s1.io.validout
+  mult3_s2.io.op := 0x00 // ADD / MUL
+  // mult3_s2.io.op := 0x01 // SUB
+  // mult3_s2.io.op := 0x02 // -SUB
+  // mult3_s2.io.op := 0x03 // -ADD
+  mult3_s2.io.roundingMode := in.rm
+  mult3_s2.io.detectTininess := hardfloat.consts.tininess_afterRounding
+  mult3_s2.io.a := sanitizeNaN(sub3_s1.io.out, t)
+  mult3_s2.io.b := sanitizeNaN(sub3_s1.io.out, t)
+  mult3_s2.io.c := zero
+
+  val add2_s3 = Module(new MulAddRecFNPipe((latency-1) min 2, t.exp, t.sig))
+  add2_s3.io.validin := mult3_s2.io.validout
+  add2_s3.io.op := 0x00 // ADD
+  // add2_s3.io.op := 0x01 // SUB
+  // add2_s3.io.op := 0x02 // -SUB
+  // add2_s3.io.op := 0x03 // -ADD
+  add2_s3.io.roundingMode := in.rm
+  add2_s3.io.detectTininess := hardfloat.consts.tininess_afterRounding
+  add2_s3.io.a := sanitizeNaN(mult3_s2.io.out, t)
+  add2_s3.io.b := one
+  add2_s3.io.c := zero
+
+  val add1_s4 = Module(new MulAddRecFNPipe((latency-1) min 2, t.exp, t.sig))
+  add1_s4.io.validin := add1_s3.io.validout & add2_s3.io.validout
+  add1_s4.io.op := 0x00 // ADD
+  // add1_s4.io.op := 0x01 // SUB
+  // add1_s4.io.op := 0x02 // -SUB
+  // add1_s4.io.op := 0x03 // -ADD
+  add1_s4.io.roundingMode := in.rm
+  add1_s4.io.detectTininess := hardfloat.consts.tininess_afterRounding
+  add1_s4.io.a := sanitizeNaN(add1_s3.io.out, t)
+  add1_s4.io.b := one
+  add1_s4.io.c := sanitizeNaN(add2_s3.io.out, t)
+
+  // in.in1 = 3.2
+  // in.in2 = 2.1
+  // in.in3 = 3.2
 
   val res = Wire(new FPResult)
-  // res.data := sanitizeNaN(fma1.io.out, t)
-  // res.exc := fma1.io.exceptionFlags
-  res.data := sanitizeNaN(fma2.io.out, t)
-  res.exc := fma2.io.exceptionFlags
+  res.data := sanitizeNaN(add1_s4.io.out, t)
+  res.exc := add1_s4.io.exceptionFlags
 
-  // io.out := Pipe(fma1.io.validout, res, (latency-3) max 0)
-  io.out := Pipe(fma2.io.validout, res, (latency-6) max 0)
-
-  //case class Pipe(p: Module, lat: Int, cond: (FPUCtrlSigs) => Bool, res: FPResult)
-
-  //NEW STUFF
-  // require(latency>0)
-
-  // val io = new Bundle { //Now uses a cleaner input
-  //   val in = Valid(new FPDistInput).flip
-  //   val out = Valid(new FPResult) //Maybe add a done? signal
-  // }
-
-  // val valid = Reg(next=io.in.valid)
-  // val in = Reg(new FPDistInput)
-  // when (io.in.valid) {
-  //   //val one = UInt(1) << (t.sig + t.exp - 1)
-    
-  //   //val cmd_fma = io.in.bits.ren3
-  //   //val cmd_addsub = io.in.bits.swap23
-  //   in := io.in.bits
-  //   //when (cmd_addsub) { in.in2 := one }
-  //   //when (!(cmd_fma || cmd_addsub)) { in.in3 := zero }
-  // }
-  // val zero = (io.in.bits.x1 ^ io.in.bits.x1) & (UInt(1) << (t.sig + t.exp))
-
-  // val fma = Module(new MulAddRecFNPipe((latency-1) min 2, t.exp, t.sig))
-  // fma.io.validin := valid
-  // fma.io.op := UInt(0)/*in.fmaCmd*/ //Decide what op this is
-  // fma.io.roundingMode := in.rm
-  // fma.io.detectTininess := hardfloat.consts.tininess_afterRounding
-  // fma.io.a := in.x1
-  // fma.io.b := in.x2
-  // fma.io.c := zero //Also decide how to pipe 0
-
-  // //STAYS THE SAME!
-
-  // val res = Wire(new FPResult)
-  // res.data := sanitizeNaN(fma.io.out, t)
-  // res.exc := fma.io.exceptionFlags
-
-  // io.out := Pipe(fma.io.validout, res, (latency-3) max 0) //When(fma.io.validout)...
+  io.out := Pipe(add1_s4.io.validout, res, (latency-12) max 0)
 }
 
 class FPU(cfg: FPUParams)(implicit p: Parameters) extends FPUModule()(p) {
