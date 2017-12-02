@@ -703,13 +703,13 @@ class FPUDistPipe(val latency: Int, val t: FType)(implicit p: Parameters) extend
   sub1_s1.io.c := in.in2
 
   val mult1_s2 = Module(new MulAddRecFNPipe((latency-1) min 2, t.exp, t.sig))
-  mult1_s2.io.validin := sub1_s1.io.validout
+  mult1_s2.io.validin := Pipe(sub1_s1.io.validout, sub1_s1.io.out, 1).valid
   mult1_s2.io.op := 0x00 // ADD / MUL
-  mult1_s2.io.roundingMode := in.rm
-  mult1_s2.io.detectTininess := hardfloat.consts.tininess_afterRounding
-  mult1_s2.io.a := sanitizeNaN(sub1_s1.io.out, t)
-  mult1_s2.io.b := sanitizeNaN(sub1_s1.io.out, t)
-  mult1_s2.io.c := zero
+  mult1_s2.io.roundingMode := Pipe(sub1_s1.io.validout, in.rm, 1).bits
+  mult1_s2.io.detectTininess := Pipe(sub1_s1.io.validout, hardfloat.consts.tininess_afterRounding, 1).bits
+  mult1_s2.io.a := Pipe(sub1_s1.io.validout, sanitizeNaN(sub1_s1.io.out, t), 1).bits
+  mult1_s2.io.b := Pipe(sub1_s1.io.validout, sanitizeNaN(sub1_s1.io.out, t), 1).bits
+  mult1_s2.io.c := Pipe(sub1_s1.io.validout, zero, 1).bits
 
   val sub2_s1 = Module(new MulAddRecFNPipe((latency-1) min 2, t.exp, t.sig))
   sub2_s1.io.validin := valid
@@ -721,22 +721,22 @@ class FPUDistPipe(val latency: Int, val t: FType)(implicit p: Parameters) extend
   sub2_s1.io.c := in.in2
 
   val mult2_s2 = Module(new MulAddRecFNPipe((latency-1) min 2, t.exp, t.sig))
-  mult2_s2.io.validin := sub2_s1.io.validout
+  mult2_s2.io.validin := Pipe(sub2_s1.io.validout, sub2_s1.io.out, 1).valid
   mult2_s2.io.op := 0x00 // ADD / MUL
-  mult2_s2.io.roundingMode := in.rm
-  mult2_s2.io.detectTininess := hardfloat.consts.tininess_afterRounding
-  mult2_s2.io.a := sanitizeNaN(sub2_s1.io.out, t)
-  mult2_s2.io.b := sanitizeNaN(sub2_s1.io.out, t)
-  mult2_s2.io.c := zero
+  mult2_s2.io.roundingMode := Pipe(sub2_s1.io.validout, in.rm, 1).bits
+  mult2_s2.io.detectTininess := Pipe(sub2_s1.io.validout, hardfloat.consts.tininess_afterRounding, 1).bits
+  mult2_s2.io.a := Pipe(sub2_s1.io.validout, sanitizeNaN(sub2_s1.io.out, t), 1).bits
+  mult2_s2.io.b := Pipe(sub2_s1.io.validout, sanitizeNaN(sub2_s1.io.out, t), 1).bits
+  mult2_s2.io.c := Pipe(sub2_s1.io.validout, zero, 1).bits
 
   val add1_s3 = Module(new MulAddRecFNPipe((latency-1) min 2, t.exp, t.sig))
-  add1_s3.io.validin := mult1_s2.io.validout &  mult2_s2.io.validout
+  add1_s3.io.validin := Pipe(mult1_s2.io.validout &  mult2_s2.io.validout, mult1_s2.io.out &  mult2_s2.io.out, 1).valid
   add1_s3.io.op := 0x00 // ADD
-  add1_s3.io.roundingMode := in.rm
-  add1_s3.io.detectTininess := hardfloat.consts.tininess_afterRounding
-  add1_s3.io.a := sanitizeNaN(mult1_s2.io.out, t)
-  add1_s3.io.b := one
-  add1_s3.io.c := sanitizeNaN(mult2_s2.io.out, t)
+  add1_s3.io.roundingMode := Pipe(mult1_s2.io.validout &  mult2_s2.io.validout, in.rm, 1).bits
+  add1_s3.io.detectTininess := Pipe(mult1_s2.io.validout &  mult2_s2.io.validout, hardfloat.consts.tininess_afterRounding, 1).bits
+  add1_s3.io.a := Pipe(mult1_s2.io.validout &  mult2_s2.io.validout, sanitizeNaN(mult1_s2.io.out, t), 1).bits
+  add1_s3.io.b := Pipe(mult1_s2.io.validout &  mult2_s2.io.validout, one, 1).bits
+  add1_s3.io.c := Pipe(mult1_s2.io.validout &  mult2_s2.io.validout, sanitizeNaN(mult2_s2.io.out, t), 1).bits
 
   val sub3_s1 = Module(new MulAddRecFNPipe((latency-1) min 2, t.exp, t.sig))
   sub3_s1.io.validin := valid
@@ -748,31 +748,31 @@ class FPUDistPipe(val latency: Int, val t: FType)(implicit p: Parameters) extend
   sub3_s1.io.c := in.in2
 
   val mult3_s2 = Module(new MulAddRecFNPipe((latency-1) min 2, t.exp, t.sig))
-  mult3_s2.io.validin := sub3_s1.io.validout
+  mult3_s2.io.validin := Pipe(sub3_s1.io.validout, sub3_s1.io.out, 1).valid
   mult3_s2.io.op := 0x00 // ADD / MUL
-  mult3_s2.io.roundingMode := in.rm
-  mult3_s2.io.detectTininess := hardfloat.consts.tininess_afterRounding
-  mult3_s2.io.a := sanitizeNaN(sub3_s1.io.out, t)
-  mult3_s2.io.b := sanitizeNaN(sub3_s1.io.out, t)
-  mult3_s2.io.c := zero
+  mult3_s2.io.roundingMode := Pipe(sub3_s1.io.validout, in.rm, 1).bits
+  mult3_s2.io.detectTininess := Pipe(sub3_s1.io.validout, hardfloat.consts.tininess_afterRounding, 1).bits
+  mult3_s2.io.a := Pipe(sub3_s1.io.validout, sanitizeNaN(sub3_s1.io.out, t), 1).bits
+  mult3_s2.io.b := Pipe(sub3_s1.io.validout, sanitizeNaN(sub3_s1.io.out, t), 1).bits
+  mult3_s2.io.c := Pipe(sub3_s1.io.validout, zero, 1).bits
 
   val add2_s3 = Module(new MulAddRecFNPipe((latency-1) min 2, t.exp, t.sig))
-  add2_s3.io.validin := mult3_s2.io.validout
+  add2_s3.io.validin := Pipe(mult3_s2.io.validout, mult3_s2.io.out, 1).valid
   add2_s3.io.op := 0x00 // ADD
-  add2_s3.io.roundingMode := in.rm
-  add2_s3.io.detectTininess := hardfloat.consts.tininess_afterRounding
-  add2_s3.io.a := sanitizeNaN(mult3_s2.io.out, t)
-  add2_s3.io.b := one
-  add2_s3.io.c := zero
+  add2_s3.io.roundingMode := Pipe(mult3_s2.io.validout, in.rm, 1).bits
+  add2_s3.io.detectTininess := Pipe(mult3_s2.io.validout, hardfloat.consts.tininess_afterRounding, 1).bits
+  add2_s3.io.a := Pipe(mult3_s2.io.validout, sanitizeNaN(mult3_s2.io.out, t), 1).bits
+  add2_s3.io.b := Pipe(mult3_s2.io.validout, one, 1).bits
+  add2_s3.io.c := Pipe(mult3_s2.io.validout, zero, 1).bits
 
   val add1_s4 = Module(new MulAddRecFNPipe((latency-1) min 2, t.exp, t.sig))
-  add1_s4.io.validin := add1_s3.io.validout & add2_s3.io.validout
+  add1_s4.io.validin := Pipe(add1_s3.io.validout & add2_s3.io.validout, add1_s3.io.out & add2_s3.io.out, 1).valid
   add1_s4.io.op := 0x00 // ADD
-  add1_s4.io.roundingMode := in.rm
-  add1_s4.io.detectTininess := hardfloat.consts.tininess_afterRounding
-  add1_s4.io.a := sanitizeNaN(add1_s3.io.out, t)
-  add1_s4.io.b := one
-  add1_s4.io.c := sanitizeNaN(add2_s3.io.out, t)
+  add1_s4.io.roundingMode := Pipe(add1_s3.io.validout & add2_s3.io.validout, in.rm, 1).bits
+  add1_s4.io.detectTininess := Pipe(add1_s3.io.validout & add2_s3.io.validout, hardfloat.consts.tininess_afterRounding, 1).bits
+  add1_s4.io.a := Pipe(add1_s3.io.validout & add2_s3.io.validout, sanitizeNaN(add1_s3.io.out, t), 1).bits
+  add1_s4.io.b := Pipe(add1_s3.io.validout & add2_s3.io.validout, one, 1).bits
+  add1_s4.io.c := Pipe(add1_s3.io.validout & add2_s3.io.validout, sanitizeNaN(add2_s3.io.out, t), 1).bits
 
   // in.in1 = 3.2
   // in.in2 = 2.1
