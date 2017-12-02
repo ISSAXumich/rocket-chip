@@ -715,13 +715,13 @@ class Rocket(implicit p: Parameters) extends CoreModule()(p)
     }
   }
   else {
-    printf("C%d: %d [%d] pc=[%x] W[r%d=%x][%d] R[r%d=%x] R[r%d=%x] inst=[%x] DASM(%x)\n",
-         io.hartid, csr.io.time(31,0), csr.io.trace(0).valid && !csr.io.trace(0).exception,
-         csr.io.trace(0).iaddr(vaddrBitsExtended-1, 0),
-         Mux(rf_wen && !(wb_set_sboard && wb_wen), rf_waddr, UInt(0)), rf_wdata, rf_wen,
-         wb_reg_inst(19,15), Reg(next=Reg(next=ex_rs(0))),
-         wb_reg_inst(24,20), Reg(next=Reg(next=ex_rs(1))),
-         csr.io.trace(0).insn, csr.io.trace(0).insn)
+    // printf("C%d: %d [%d] pc=[%x] W[r%d=%x][%d] R[r%d=%x] R[r%d=%x] inst=[%x] DASM(%x)\n",
+    //      io.hartid, csr.io.time(31,0), csr.io.trace(0).valid && !csr.io.trace(0).exception,
+    //      csr.io.trace(0).iaddr(vaddrBitsExtended-1, 0),
+    //      Mux(rf_wen && !(wb_set_sboard && wb_wen), rf_waddr, UInt(0)), rf_wdata, rf_wen,
+    //      wb_reg_inst(19,15), Reg(next=Reg(next=ex_rs(0))),
+    //      wb_reg_inst(24,20), Reg(next=Reg(next=ex_rs(1))),
+    //      csr.io.trace(0).insn, csr.io.trace(0).insn)
   }
 
   val max_core_cycles = PlusArg("max-core-cycles",

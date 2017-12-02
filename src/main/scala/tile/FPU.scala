@@ -10,6 +10,7 @@ import freechips.rocketchip.config.Parameters
 import freechips.rocketchip.rocket._
 import freechips.rocketchip.rocket.Instructions._
 import freechips.rocketchip.util._
+import scala.util.Random
 
 case class FPUParams(
   divSqrt: Boolean = true,
@@ -680,10 +681,6 @@ class FPUFMAPipe(val latency: Int, val t: FType)(implicit p: Parameters) extends
 class FPUDistPipe(val latency: Int, val t: FType)(implicit p: Parameters) extends FPUModule()(p) {
   require(latency>0)
 
-  // float ftest1 = 3.2;
-  // float ftest2 = 2.1;
-  // float ftest3 = 0.1;
-
   val io = new Bundle {
     val in = Valid(new FPInput).flip
     val out = Valid(new FPResult) 
@@ -696,15 +693,9 @@ class FPUDistPipe(val latency: Int, val t: FType)(implicit p: Parameters) extend
   val zero = (io.in.bits.in1 ^ io.in.bits.in2) & (UInt(1) << (t.sig + t.exp))
   in := io.in.bits
 
-  // !swap23 -> 1 * 2 + 3
-  // swap23  -> 1 * 3 + 2
-
   val sub1_s1 = Module(new MulAddRecFNPipe((latency-1) min 2, t.exp, t.sig))
   sub1_s1.io.validin := valid
-  // sub1_s1.io.op := 0x00 // ADD
   sub1_s1.io.op := 0x01 // SUB
-  // sub1_s1.io.op := 0x02 // -SUB
-  // sub1_s1.io.op := 0x03 // -ADD
   sub1_s1.io.roundingMode := in.rm
   sub1_s1.io.detectTininess := hardfloat.consts.tininess_afterRounding
   sub1_s1.io.a := in.in1
@@ -714,9 +705,6 @@ class FPUDistPipe(val latency: Int, val t: FType)(implicit p: Parameters) extend
   val mult1_s2 = Module(new MulAddRecFNPipe((latency-1) min 2, t.exp, t.sig))
   mult1_s2.io.validin := sub1_s1.io.validout
   mult1_s2.io.op := 0x00 // ADD / MUL
-  // mult1_s2.io.op := 0x01 // SUB
-  // mult1_s2.io.op := 0x02 // -SUB
-  // mult1_s2.io.op := 0x03 // -ADD
   mult1_s2.io.roundingMode := in.rm
   mult1_s2.io.detectTininess := hardfloat.consts.tininess_afterRounding
   mult1_s2.io.a := sanitizeNaN(sub1_s1.io.out, t)
@@ -725,10 +713,7 @@ class FPUDistPipe(val latency: Int, val t: FType)(implicit p: Parameters) extend
 
   val sub2_s1 = Module(new MulAddRecFNPipe((latency-1) min 2, t.exp, t.sig))
   sub2_s1.io.validin := valid
-  // sub2_s1.io.op := 0x00 // ADD
   sub2_s1.io.op := 0x01 // SUB
-  // sub2_s1.io.op := 0x02 // -SUB
-  // sub2_s1.io.op := 0x03 // -ADD
   sub2_s1.io.roundingMode := in.rm
   sub2_s1.io.detectTininess := hardfloat.consts.tininess_afterRounding
   sub2_s1.io.a := in.in1
@@ -738,9 +723,6 @@ class FPUDistPipe(val latency: Int, val t: FType)(implicit p: Parameters) extend
   val mult2_s2 = Module(new MulAddRecFNPipe((latency-1) min 2, t.exp, t.sig))
   mult2_s2.io.validin := sub2_s1.io.validout
   mult2_s2.io.op := 0x00 // ADD / MUL
-  // mult2_s2.io.op := 0x01 // SUB
-  // mult2_s2.io.op := 0x02 // -SUB
-  // mult2_s2.io.op := 0x03 // -ADD
   mult2_s2.io.roundingMode := in.rm
   mult2_s2.io.detectTininess := hardfloat.consts.tininess_afterRounding
   mult2_s2.io.a := sanitizeNaN(sub2_s1.io.out, t)
@@ -750,9 +732,6 @@ class FPUDistPipe(val latency: Int, val t: FType)(implicit p: Parameters) extend
   val add1_s3 = Module(new MulAddRecFNPipe((latency-1) min 2, t.exp, t.sig))
   add1_s3.io.validin := mult1_s2.io.validout &  mult2_s2.io.validout
   add1_s3.io.op := 0x00 // ADD
-  // add1_s3.io.op := 0x01 // SUB
-  // add1_s3.io.op := 0x02 // -SUB
-  // add1_s3.io.op := 0x03 // -ADD
   add1_s3.io.roundingMode := in.rm
   add1_s3.io.detectTininess := hardfloat.consts.tininess_afterRounding
   add1_s3.io.a := sanitizeNaN(mult1_s2.io.out, t)
@@ -761,10 +740,7 @@ class FPUDistPipe(val latency: Int, val t: FType)(implicit p: Parameters) extend
 
   val sub3_s1 = Module(new MulAddRecFNPipe((latency-1) min 2, t.exp, t.sig))
   sub3_s1.io.validin := valid
-  // sub3_s1.io.op := 0x00 // ADD
   sub3_s1.io.op := 0x01 // SUB
-  // sub3_s1.io.op := 0x02 // -SUB
-  // sub3_s1.io.op := 0x03 // -ADD
   sub3_s1.io.roundingMode := in.rm
   sub3_s1.io.detectTininess := hardfloat.consts.tininess_afterRounding
   sub3_s1.io.a := in.in1
@@ -774,9 +750,6 @@ class FPUDistPipe(val latency: Int, val t: FType)(implicit p: Parameters) extend
   val mult3_s2 = Module(new MulAddRecFNPipe((latency-1) min 2, t.exp, t.sig))
   mult3_s2.io.validin := sub3_s1.io.validout
   mult3_s2.io.op := 0x00 // ADD / MUL
-  // mult3_s2.io.op := 0x01 // SUB
-  // mult3_s2.io.op := 0x02 // -SUB
-  // mult3_s2.io.op := 0x03 // -ADD
   mult3_s2.io.roundingMode := in.rm
   mult3_s2.io.detectTininess := hardfloat.consts.tininess_afterRounding
   mult3_s2.io.a := sanitizeNaN(sub3_s1.io.out, t)
@@ -786,9 +759,6 @@ class FPUDistPipe(val latency: Int, val t: FType)(implicit p: Parameters) extend
   val add2_s3 = Module(new MulAddRecFNPipe((latency-1) min 2, t.exp, t.sig))
   add2_s3.io.validin := mult3_s2.io.validout
   add2_s3.io.op := 0x00 // ADD
-  // add2_s3.io.op := 0x01 // SUB
-  // add2_s3.io.op := 0x02 // -SUB
-  // add2_s3.io.op := 0x03 // -ADD
   add2_s3.io.roundingMode := in.rm
   add2_s3.io.detectTininess := hardfloat.consts.tininess_afterRounding
   add2_s3.io.a := sanitizeNaN(mult3_s2.io.out, t)
@@ -798,9 +768,6 @@ class FPUDistPipe(val latency: Int, val t: FType)(implicit p: Parameters) extend
   val add1_s4 = Module(new MulAddRecFNPipe((latency-1) min 2, t.exp, t.sig))
   add1_s4.io.validin := add1_s3.io.validout & add2_s3.io.validout
   add1_s4.io.op := 0x00 // ADD
-  // add1_s4.io.op := 0x01 // SUB
-  // add1_s4.io.op := 0x02 // -SUB
-  // add1_s4.io.op := 0x03 // -ADD
   add1_s4.io.roundingMode := in.rm
   add1_s4.io.detectTininess := hardfloat.consts.tininess_afterRounding
   add1_s4.io.a := sanitizeNaN(add1_s3.io.out, t)
@@ -810,6 +777,18 @@ class FPUDistPipe(val latency: Int, val t: FType)(implicit p: Parameters) extend
   // in.in1 = 3.2
   // in.in2 = 2.1
   // in.in3 = 3.2
+
+  // Random print statements for debugging purposes..
+  when (sub1_s1.io.validout) { printf("sub1_s1\n") }
+  when (mult1_s2.io.validout) { printf("mult1_s2\n") }
+  when (sub2_s1.io.validout) { printf("sub2_s1\n") }
+  when (mult2_s2.io.validout) { printf("mult2_s2\n") }
+  when (add1_s3.io.validout) { printf("add1_s3\n") }
+  when (sub3_s1.io.validout) { printf("sub3_s1\n") }
+  when (mult3_s2.io.validout) { printf("mult3_s2\n") }
+  when (add2_s3.io.validout) { printf("add2_s3\n") }
+  when (add2_s3.io.validout) { printf(s"FINISHED ${sanitizeNaN(add2_s3.io.out, t)}\n") }
+  when (add1_s4.io.validout) { printf("add1_s4\n") }
 
   val res = Wire(new FPResult)
   res.data := sanitizeNaN(add1_s4.io.out, t)
