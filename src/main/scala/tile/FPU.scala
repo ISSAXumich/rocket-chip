@@ -14,7 +14,7 @@ import scala.util.Random
 
 case class FPUParams(
   divSqrt: Boolean = true,
-  sfdistLatency: Int = 12,
+  sfdistLatency: Int = 30,
   sfmaLatency: Int = 3,
   dfmaLatency: Int = 4
 )
@@ -774,6 +774,30 @@ class FPUDistPipe(val latency: Int, val t: FType)(implicit p: Parameters) extend
   add1_s4.io.b := Pipe(add1_s3.io.validout & add2_s3.io.validout, one, 1).bits
   add1_s4.io.c := Pipe(add1_s3.io.validout & add2_s3.io.validout, sanitizeNaN(add2_s3.io.out, t), 1).bits
 
+  val distSqrt = Module(new hardfloat.DivSqrtRecFN_small(t.exp, t.sig, 0))
+  distSqrt.io.inValid := Pipe(add1_s4.io.validout, add1_s4.io.out, 1).valid
+  distSqrt.io.sqrtOp := 0x1
+  // distSqrt.io.sqrtOp := Bool(true)
+  // distSqrt.io.a := UInt("b10000000100001100110011001100110")
+  distSqrt.io.a := Pipe(add1_s4.io.validout, sanitizeNaN(add1_s4.io.out, t), 1).bits(31,0)
+  // distSqrt.io.a := maxType.unsafeConvert(zero, t)
+  // distSqrt.io.b := UInt("b11100000010000000000000000000000")
+  distSqrt.io.b := UInt("b00000000000000000000000000000000")
+  // distSqrt.io.b := maxType.unsafeConvert(zero, t)
+  distSqrt.io.roundingMode := 0x0
+  // distSqrt.io.roundingMode := in.rm
+  distSqrt.io.detectTininess := hardfloat.consts.tininess_afterRounding
+
+  when (add1_s4.io.validout) {
+    printf("sanitizeNaN(add1_s4.io.out, t) 0x%x\n", sanitizeNaN(add1_s4.io.out, t))
+    printf("in.in2 0x%x\n", in.in2)
+  }
+
+  when (distSqrt.io.outValid_sqrt) {
+    printf("distSqrt %x\n", sanitizeNaN(distSqrt.io.out, t))
+    printf(s"distSqrt FINISHED ${distSqrt.io}\n")
+  }
+
   // in.in1 = 3.2
   // in.in2 = 2.1
   // in.in3 = 3.2
@@ -791,10 +815,10 @@ class FPUDistPipe(val latency: Int, val t: FType)(implicit p: Parameters) extend
   when (add1_s4.io.validout) { printf("add1_s4\n") }
 
   val res = Wire(new FPResult)
-  res.data := sanitizeNaN(add1_s4.io.out, t)
-  res.exc := add1_s4.io.exceptionFlags
+  res.data := sanitizeNaN(distSqrt.io.out, t)
+  res.exc := distSqrt.io.exceptionFlags
 
-  io.out := Pipe(add1_s4.io.validout, res, (latency-12) max 0)
+  io.out := Pipe(distSqrt.io.outValid_sqrt, res, (latency-30) max 0)
 }
 
 class FPU(cfg: FPUParams)(implicit p: Parameters) extends FPUModule()(p) {
@@ -834,6 +858,8 @@ class FPU(cfg: FPUParams)(implicit p: Parameters) extends FPUModule()(p) {
   val load_wb_double = RegEnable(io.dmem_resp_type(0), io.dmem_resp_val)
   val load_wb_data = RegEnable(io.dmem_resp_data, io.dmem_resp_val)
   val load_wb_tag = RegEnable(io.dmem_resp_tag, io.dmem_resp_val)
+
+  // when (io.dmem_resp_val) { printf("io.dmem_resp_val\n") }
 
   // regfile
   val regfile = Mem(32, Bits(width = fLen+1))
@@ -903,7 +929,6 @@ class FPU(cfg: FPUParams)(implicit p: Parameters) extends FPUModule()(p) {
     Pipe(ifpu, ifpu.latency, (c: FPUCtrlSigs) => c.fromint, ifpu.io.out.bits),
     Pipe(sfma, sfma.latency, (c: FPUCtrlSigs) => c.fma && c.singleOut, sfma.io.out.bits),
     Pipe(sfdist, sfdist.latency, (c: FPUCtrlSigs) => c.fdist && c.singleOut, sfdist.io.out.bits)) ++
-    // Pipe(sfdist, sfdist.latency, (c: FPUCtrlSigs) => c.fdist && c.singleOut, sfdist.io.out.bits)) ++
     (fLen > 32).option({
           val dfma = Module(new FPUFMAPipe(cfg.dfmaLatency, FType.D))
           dfma.io.in.valid := req_valid && ex_ctrl.fma && !ex_ctrl.singleOut
