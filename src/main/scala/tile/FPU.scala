@@ -193,7 +193,7 @@ class FPInput(implicit p: Parameters) extends CoreBundle()(p) with HasFPUCtrlSig
 }
 
 class FPDistInput(implicit p: Parameters) extends CoreBundle()(p) {
-  val rm = Bits(width = FPConstants.RM_SZ) //Does this need a rounding mode?
+  //val rm = Bits(width = FPConstants.RM_SZ) //Does this need a rounding mode?
   val x1 = Bits(width = fLen+1)
   val x2 = Bits(width = fLen+1)
 
@@ -683,7 +683,8 @@ class FPUDistPipe(val latency: Int, val t: FType)(implicit p: Parameters) extend
 
   val io = new Bundle {
     val in = Valid(new FPInput).flip
-    val out = Valid(new FPResult) 
+    val out = Valid(new FPResult)
+    val coord = (new FPDistInput).flip
   }
 
   val valid = Reg(next=io.in.valid)
@@ -693,14 +694,24 @@ class FPUDistPipe(val latency: Int, val t: FType)(implicit p: Parameters) extend
   val zero = (io.in.bits.in1 ^ io.in.bits.in2) & (UInt(1) << (t.sig + t.exp))
   in := io.in.bits
 
+  when (valid) {
+    printf("io.coord.x1: %x\n", io.coord.x1)
+    printf("io.coord.y1: %x\n", io.coord.y1)
+    printf("io.coord.z1: %x\n", io.coord.z1)
+
+    printf("io.coord.x2: %x\n", io.coord.x2)
+    printf("io.coord.y2: %x\n", io.coord.y2)
+    printf("io.coord.z2: %x\n", io.coord.z2)
+  }
+
   val sub1_s1 = Module(new MulAddRecFNPipe((latency-1) min 2, t.exp, t.sig))
   sub1_s1.io.validin := valid
   sub1_s1.io.op := 0x01 // SUB
   sub1_s1.io.roundingMode := in.rm
   sub1_s1.io.detectTininess := hardfloat.consts.tininess_afterRounding
-  sub1_s1.io.a := in.in1
+  sub1_s1.io.a := /*in.in1*/ io.coord.x1
   sub1_s1.io.b := one
-  sub1_s1.io.c := in.in2
+  sub1_s1.io.c := /*in.in2*/ io.coord.x2
 
   val mult1_s2 = Module(new MulAddRecFNPipe((latency-1) min 2, t.exp, t.sig))
   mult1_s2.io.validin := Pipe(sub1_s1.io.validout, sub1_s1.io.out, 1).valid
@@ -716,9 +727,9 @@ class FPUDistPipe(val latency: Int, val t: FType)(implicit p: Parameters) extend
   sub2_s1.io.op := 0x01 // SUB
   sub2_s1.io.roundingMode := in.rm
   sub2_s1.io.detectTininess := hardfloat.consts.tininess_afterRounding
-  sub2_s1.io.a := in.in1
+  sub2_s1.io.a := /*in.in1*/ io.coord.y1
   sub2_s1.io.b := one
-  sub2_s1.io.c := in.in2
+  sub2_s1.io.c := /*in.in2*/ io.coord.y2
 
   val mult2_s2 = Module(new MulAddRecFNPipe((latency-1) min 2, t.exp, t.sig))
   mult2_s2.io.validin := Pipe(sub2_s1.io.validout, sub2_s1.io.out, 1).valid
@@ -743,9 +754,9 @@ class FPUDistPipe(val latency: Int, val t: FType)(implicit p: Parameters) extend
   sub3_s1.io.op := 0x01 // SUB
   sub3_s1.io.roundingMode := in.rm
   sub3_s1.io.detectTininess := hardfloat.consts.tininess_afterRounding
-  sub3_s1.io.a := in.in1
+  sub3_s1.io.a := /*in.in1*/ io.coord.z1
   sub3_s1.io.b := one
-  sub3_s1.io.c := in.in2
+  sub3_s1.io.c := /*in.in2*/ io.coord.z2
 
   val mult3_s2 = Module(new MulAddRecFNPipe((latency-1) min 2, t.exp, t.sig))
   mult3_s2.io.validin := Pipe(sub3_s1.io.validout, sub3_s1.io.out, 1).valid
@@ -776,16 +787,10 @@ class FPUDistPipe(val latency: Int, val t: FType)(implicit p: Parameters) extend
 
   val distSqrt = Module(new hardfloat.DivSqrtRecFN_small(t.exp, t.sig, 0))
   distSqrt.io.inValid := Pipe(add1_s4.io.validout, add1_s4.io.out, 1).valid
-  distSqrt.io.sqrtOp := 0x1
-  // distSqrt.io.sqrtOp := Bool(true)
-  // distSqrt.io.a := UInt("b10000000100001100110011001100110")
+  distSqrt.io.sqrtOp := Bool(true)
   distSqrt.io.a := Pipe(add1_s4.io.validout, sanitizeNaN(add1_s4.io.out, t), 1).bits(31,0)
-  // distSqrt.io.a := maxType.unsafeConvert(zero, t)
-  // distSqrt.io.b := UInt("b11100000010000000000000000000000")
   distSqrt.io.b := UInt("b00000000000000000000000000000000")
-  // distSqrt.io.b := maxType.unsafeConvert(zero, t)
-  distSqrt.io.roundingMode := 0x0
-  // distSqrt.io.roundingMode := in.rm
+  distSqrt.io.roundingMode := in.rm
   distSqrt.io.detectTininess := hardfloat.consts.tininess_afterRounding
 
   when (add1_s4.io.validout) {
@@ -798,21 +803,16 @@ class FPUDistPipe(val latency: Int, val t: FType)(implicit p: Parameters) extend
     printf(s"distSqrt FINISHED ${distSqrt.io}\n")
   }
 
-  // in.in1 = 3.2
-  // in.in2 = 2.1
-  // in.in3 = 3.2
-
   // Random print statements for debugging purposes..
-  when (sub1_s1.io.validout) { printf("sub1_s1\n") }
-  when (mult1_s2.io.validout) { printf("mult1_s2\n") }
-  when (sub2_s1.io.validout) { printf("sub2_s1\n") }
-  when (mult2_s2.io.validout) { printf("mult2_s2\n") }
-  when (add1_s3.io.validout) { printf("add1_s3\n") }
-  when (sub3_s1.io.validout) { printf("sub3_s1\n") }
-  when (mult3_s2.io.validout) { printf("mult3_s2\n") }
-  when (add2_s3.io.validout) { printf("add2_s3\n") }
-  when (add2_s3.io.validout) { printf(s"FINISHED ${sanitizeNaN(add2_s3.io.out, t)}\n") }
-  when (add1_s4.io.validout) { printf("add1_s4\n") }
+  when (sub1_s1.io.validout) { printf("sub1_s1: %x\n", sanitizeNaN(sub1_s1.io.out, t)) }
+  when (mult1_s2.io.validout) { printf("mult1_s2: %x\n", sanitizeNaN(mult1_s2.io.out, t)) }
+  when (sub2_s1.io.validout) { printf("sub2_s1: %x\n", sanitizeNaN(sub2_s1.io.out, t)) }
+  when (mult2_s2.io.validout) { printf("mult2_s2: %x\n", sanitizeNaN(mult2_s2.io.out, t)) }
+  when (add1_s3.io.validout) { printf("add1_s3: %x\n", sanitizeNaN(add1_s3.io.out, t)) }
+  when (sub3_s1.io.validout) { printf("sub3_s1: %x\n", sanitizeNaN(sub3_s1.io.out, t)) }
+  when (mult3_s2.io.validout) { printf("mult3_s2: %x\n", sanitizeNaN(mult3_s2.io.out, t)) }
+  when (add2_s3.io.validout) { printf("add2_s3: %x\n", sanitizeNaN(add2_s3.io.out, t)) }
+  when (add1_s4.io.validout) { printf("add1_s4: %x\n", sanitizeNaN(add1_s4.io.out, t)) }
 
   val res = Wire(new FPResult)
   res.data := sanitizeNaN(distSqrt.io.out, t)
@@ -891,9 +891,22 @@ class FPU(cfg: FPUParams)(implicit p: Parameters) extends FPUModule()(p) {
   sfma.io.in.valid := req_valid && ex_ctrl.fma && ex_ctrl.singleOut
   sfma.io.in.bits := fuInput(Some(sfma.t))
 
+  val ex_ra_coord = List.fill(6)(Reg(UInt()))
+  val ex_rs_coord = ex_ra_coord.map(a => regfile(a))
+
+  when (io.valid) {
+    ex_ra_coord(0) := 10
+    ex_ra_coord(1) := 11
+    ex_ra_coord(2) := 12
+    ex_ra_coord(3) := 13
+    ex_ra_coord(4) := 14
+    ex_ra_coord(5) := 15
+  }
+
   val sfdist = Module(new FPUDistPipe(cfg.sfdistLatency, FType.S))
   sfdist.io.in.valid := req_valid && ex_ctrl.fdist && ex_ctrl.singleOut
   sfdist.io.in.bits := fuInput(Some(sfdist.t))
+  sfdist.io.coord := fuDistInput(Some(sfdist.t))
 
   val fpiu = Module(new FPToInt)
   fpiu.io.in.valid := req_valid && (ex_ctrl.toint || ex_ctrl.div || ex_ctrl.sqrt || (ex_ctrl.fastpipe && ex_ctrl.wflags))
@@ -1057,6 +1070,23 @@ class FPU(cfg: FPUParams)(implicit p: Parameters) extends FPUModule()(p) {
         req.in2 := io.cp_req.bits.in3
         req.in3 := io.cp_req.bits.in2
       }
+    }
+    req
+  }
+
+  def fuDistInput(minT: Option[FType]): FPDistInput = {
+    val req = Wire(new FPDistInput)
+    val tag = !ex_ctrl.singleIn // TODO typeTag
+    req := ex_ctrl
+    req.x1 := unbox(ex_rs_coord(0), tag, minT)
+    req.y1 := unbox(ex_rs_coord(1), tag, minT)
+    req.z1 := unbox(ex_rs_coord(2), tag, minT)
+    req.x2 := unbox(ex_rs_coord(3), tag, minT)
+    req.y2 := unbox(ex_rs_coord(4), tag, minT)
+    req.z2 := unbox(ex_rs_coord(5), tag, minT)
+
+    when (ex_cp_valid) {
+      req := io.cp_req.bits
     }
     req
   }
