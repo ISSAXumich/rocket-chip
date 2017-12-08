@@ -694,15 +694,15 @@ class FPUDistPipe(val latency: Int, val t: FType)(implicit p: Parameters) extend
   val zero = (io.in.bits.in1 ^ io.in.bits.in2) & (UInt(1) << (t.sig + t.exp))
   in := io.in.bits
 
-  when (valid) {
-    printf("io.coord.x1: %x\n", io.coord.x1)
-    printf("io.coord.y1: %x\n", io.coord.y1)
-    printf("io.coord.z1: %x\n", io.coord.z1)
+  // when (valid) {
+  //   printf("io.coord.x1: %x\n", io.coord.x1)
+  //   printf("io.coord.y1: %x\n", io.coord.y1)
+  //   printf("io.coord.z1: %x\n", io.coord.z1)
 
-    printf("io.coord.x2: %x\n", io.coord.x2)
-    printf("io.coord.y2: %x\n", io.coord.y2)
-    printf("io.coord.z2: %x\n", io.coord.z2)
-  }
+  //   printf("io.coord.x2: %x\n", io.coord.x2)
+  //   printf("io.coord.y2: %x\n", io.coord.y2)
+  //   printf("io.coord.z2: %x\n", io.coord.z2)
+  // }
 
   val sub1_s1 = Module(new MulAddRecFNPipe((latency-1) min 2, t.exp, t.sig))
   sub1_s1.io.validin := valid
@@ -788,31 +788,32 @@ class FPUDistPipe(val latency: Int, val t: FType)(implicit p: Parameters) extend
   val distSqrt = Module(new hardfloat.DivSqrtRecFN_small(t.exp, t.sig, 0))
   distSqrt.io.inValid := Pipe(add1_s4.io.validout, add1_s4.io.out, 1).valid
   distSqrt.io.sqrtOp := Bool(true)
-  distSqrt.io.a := Pipe(add1_s4.io.validout, sanitizeNaN(add1_s4.io.out, t), 1).bits(31,0)
+  // distSqrt.io.a := Pipe(add1_s4.io.validout, sanitizeNaN(add1_s4.io.out, t), 1).bits(31,0)
+  distSqrt.io.a := Pipe(add1_s4.io.validout, sanitizeNaN(add1_s4.io.out, t), 1).bits
   distSqrt.io.b := UInt("b00000000000000000000000000000000")
   distSqrt.io.roundingMode := in.rm
   distSqrt.io.detectTininess := hardfloat.consts.tininess_afterRounding
 
-  when (add1_s4.io.validout) {
-    printf("sanitizeNaN(add1_s4.io.out, t) 0x%x\n", sanitizeNaN(add1_s4.io.out, t))
-    printf("in.in2 0x%x\n", in.in2)
-  }
+  // when (add1_s4.io.validout) {
+  //   printf("sanitizeNaN(add1_s4.io.out, t) 0x%x\n", sanitizeNaN(add1_s4.io.out, t))
+  //   printf("in.in2 0x%x\n", in.in2)
+  // }
 
-  when (distSqrt.io.outValid_sqrt) {
-    printf("distSqrt %x\n", sanitizeNaN(distSqrt.io.out, t))
-    printf(s"distSqrt FINISHED ${distSqrt.io}\n")
-  }
+  // when (distSqrt.io.outValid_sqrt) {
+  //   printf("distSqrt %x\n", sanitizeNaN(distSqrt.io.out, t))
+  //   printf(s"distSqrt FINISHED ${distSqrt.io}\n")
+  // }
 
   // Random print statements for debugging purposes..
-  when (sub1_s1.io.validout) { printf("sub1_s1: %x\n", sanitizeNaN(sub1_s1.io.out, t)) }
-  when (mult1_s2.io.validout) { printf("mult1_s2: %x\n", sanitizeNaN(mult1_s2.io.out, t)) }
-  when (sub2_s1.io.validout) { printf("sub2_s1: %x\n", sanitizeNaN(sub2_s1.io.out, t)) }
-  when (mult2_s2.io.validout) { printf("mult2_s2: %x\n", sanitizeNaN(mult2_s2.io.out, t)) }
-  when (add1_s3.io.validout) { printf("add1_s3: %x\n", sanitizeNaN(add1_s3.io.out, t)) }
-  when (sub3_s1.io.validout) { printf("sub3_s1: %x\n", sanitizeNaN(sub3_s1.io.out, t)) }
-  when (mult3_s2.io.validout) { printf("mult3_s2: %x\n", sanitizeNaN(mult3_s2.io.out, t)) }
-  when (add2_s3.io.validout) { printf("add2_s3: %x\n", sanitizeNaN(add2_s3.io.out, t)) }
-  when (add1_s4.io.validout) { printf("add1_s4: %x\n", sanitizeNaN(add1_s4.io.out, t)) }
+  // when (sub1_s1.io.validout) { printf("sub1_s1: %x\n", sanitizeNaN(sub1_s1.io.out, t)) }
+  // when (mult1_s2.io.validout) { printf("mult1_s2: %x\n", sanitizeNaN(mult1_s2.io.out, t)) }
+  // when (sub2_s1.io.validout) { printf("sub2_s1: %x\n", sanitizeNaN(sub2_s1.io.out, t)) }
+  // when (mult2_s2.io.validout) { printf("mult2_s2: %x\n", sanitizeNaN(mult2_s2.io.out, t)) }
+  // when (add1_s3.io.validout) { printf("add1_s3: %x\n", sanitizeNaN(add1_s3.io.out, t)) }
+  // when (sub3_s1.io.validout) { printf("sub3_s1: %x\n", sanitizeNaN(sub3_s1.io.out, t)) }
+  // when (mult3_s2.io.validout) { printf("mult3_s2: %x\n", sanitizeNaN(mult3_s2.io.out, t)) }
+  // when (add2_s3.io.validout) { printf("add2_s3: %x\n", sanitizeNaN(add2_s3.io.out, t)) }
+  // when (add1_s4.io.validout) { printf("add1_s4: %x\n", sanitizeNaN(add1_s4.io.out, t)) }
 
   val res = Wire(new FPResult)
   res.data := sanitizeNaN(distSqrt.io.out, t)
